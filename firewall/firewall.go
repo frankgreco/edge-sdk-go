@@ -5,31 +5,37 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"strconv"
-	"strings"
 )
 
 const (
 	tokenKey = "X-CSRF-TOKEN"
 )
 
+type Port struct {
+	FromPort int `json:"-"`
+	ToPort   int `json:"-"`
+}
+
 type Source struct {
-	Address  string `json:"address" tfsdk:"address"`
-	FromPort int    `json:"-" tfsdk:"from_port"`
-	ToPort   int    `json:"-" tfsdk:"to_port"`
-	Port     string `json:"port" tfsdk:"-"`
-	MAC      string `tfsdk:"mac"`
+	Address string `json:"address" tfsdk:"address"`
+	MAC     string `tfsdk:"mac"`
+	*Port
 }
 
 type Destination struct {
-	Address  string `json:"address" tfsdk:"address"`
-	FromPort int    `json:"-" tfsdk:"from_port"`
-	ToPort   int    `json:"-" tfsdk:"to_port"`
-	Port     string `json:"port" tfsdk:"-"`
+	Address string `json:"address"`
+	*Port
+}
+
+type State struct {
+	Established bool `json:"established" tfsdk:"established"`
+	Invalid     bool `json:"invalid" tfsdk:"invalid"`
+	New         bool `json:"new" tfsdk:"new"`
+	Related     bool `json:"related" tfsdk:"related"`
 }
 
 type Rule struct {
@@ -39,6 +45,7 @@ type Rule struct {
 	Protocol    string       `json:"protocol" tfsdk:"protocol"`
 	Source      *Source      `json:"source" tfsdk:"source"`
 	Destination *Destination `json:"destination" tfsdk:"destination"`
+	State       *State       `json:"state" tfsdk:"state"`
 }
 
 type Ruleset struct {
@@ -197,56 +204,26 @@ func getRuleset(name string, reader io.Reader) (*Ruleset, error) {
 	return ruleset.toTerraform(name)
 }
 
-func (rs *Ruleset) fromTerraform() *Ruleset {
-	normalizePort := func(from, to int) string {
-		if from == to {
-			return strconv.Itoa(from)
-		}
-		return fmt.Sprintf("%d-%d", from, to)
-	}
+func (s *Source) port() string {
+	return port(s.FromPort, s.ToPort)
+}
 
+func (d *Destination) port() string {
+	return port(d.FromPort, d.ToPort)
+}
+
+func (rs *Ruleset) fromTerraform() *Ruleset {
 	if len(rs.Rules) > 0 {
 		rs.RulesMap = map[string]*Rule{}
 	}
 
 	for _, rule := range rs.Rules {
 		rs.RulesMap[strconv.Itoa(rule.Priority)] = rule
-
-		if rule.Destination != nil {
-			rule.Destination.Port = normalizePort(rule.Destination.FromPort, rule.Destination.ToPort)
-		}
-
-		if rule.Source != nil {
-			rule.Source.Port = normalizePort(rule.Source.FromPort, rule.Source.ToPort)
-		}
-
 	}
 	return rs
 }
 
 func (rs *Ruleset) toTerraform(name string) (_ *Ruleset, err error) {
-	construct := func(port string) (int, int, error) {
-		if !strings.Contains(port, "-") {
-			i, err := strconv.Atoi(port)
-			if err != nil {
-				return 0, 0, errors.New("Malformed port.")
-			}
-			return i, i, nil
-		}
-
-		arr := strings.Split(port, "-")
-		from, err := strconv.Atoi(arr[0])
-		if err != nil {
-			return 0, 0, errors.New("Malformed port.")
-		}
-		to, err := strconv.Atoi(arr[1])
-		if err != nil {
-			return 0, 0, errors.New("Malformed port.")
-		}
-
-		return from, to, nil
-	}
-
 	rs.Name = name
 
 	for k, v := range rs.RulesMap {
@@ -255,20 +232,6 @@ func (rs *Ruleset) toTerraform(name string) (_ *Ruleset, err error) {
 			return nil, errors.New("Malformed rule priority.")
 		}
 		v.Priority = i
-
-		if v.Destination != nil && v.Destination.Port != "" {
-			v.Destination.FromPort, v.Destination.ToPort, err = construct(v.Destination.Port)
-			if err != nil {
-				return nil, err
-			}
-		}
-
-		if v.Source != nil && v.Source.Port != "" {
-			v.Source.FromPort, v.Source.ToPort, err = construct(v.Source.Port)
-			if err != nil {
-				return nil, err
-			}
-		}
 
 		rs.Rules = append(rs.Rules, v)
 	}

@@ -3,7 +3,9 @@ package firewall
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math/big"
+	"strconv"
 
 	"github.com/hashicorp/terraform-plugin-go/tftypes"
 )
@@ -102,6 +104,42 @@ func (d *Destination) UnmarshalJSON(data []byte) (err error) {
 	d.Port = new(Port)
 	d.FromPort, d.ToPort, err = ports(aux.Port)
 	return err
+}
+
+func (rs *Ruleset) MarshalJSON() ([]byte, error) {
+	type Alias Ruleset
+	return json.Marshal(&struct {
+		RulesMap map[string]*Rule `json:"rule,omitempty"`
+		*Alias
+	}{
+		RulesMap: rs.buildMap(),
+		Alias:    (*Alias)(rs),
+	})
+}
+
+func (rs *Ruleset) UnmarshalJSON(data []byte) (err error) {
+	type Alias Ruleset
+	aux := &struct {
+		RulesMap map[string]*Rule `json:"rule,omitempty"`
+		*Alias
+	}{
+		Alias: (*Alias)(rs),
+	}
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+
+	for k, v := range aux.RulesMap {
+		i, err := strconv.Atoi(k)
+		if err != nil {
+			return fmt.Errorf("malformed rule priority: %v", k)
+		}
+		v.Priority = i
+
+		rs.Rules = append(rs.Rules, v)
+	}
+
+	return nil
 }
 
 func (d *Destination) FromTerraform5Value(v tftypes.Value) error {

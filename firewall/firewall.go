@@ -49,11 +49,10 @@ type Rule struct {
 }
 
 type Ruleset struct {
-	Name          string           `json:"-" tfsdk:"name"`
-	Description   string           `json:"description" tfsdk:"description"`
-	DefaultAction string           `json:"default-action" tfsdk:"default_action"`
-	Rules         []*Rule          `json:"-" tfsdk:"rule"`
-	RulesMap      map[string]*Rule `json:"rule,omitempty" tfsdk:"-"`
+	Name          string  `json:"-" tfsdk:"name"`
+	Description   string  `json:"description,omitempty" tfsdk:"description"`
+	DefaultAction string  `json:"default-action,omitempty" tfsdk:"default_action"`
+	Rules         []*Rule `json:"-" tfsdk:"rule"` // Omitting the json tag due to custom marshal/unmarshal methods.
 }
 
 type Firewall struct {
@@ -118,7 +117,7 @@ func (c *client) GetRuleset(ctx context.Context, name string) (*Ruleset, error) 
 		return nil, err
 	}
 	defer resp.Body.Close()
-	return getRuleset(name, resp.Body)
+	return toRuleset(name, resp.Body)
 }
 
 func (c *client) CreateRuleset(ctx context.Context, p *Ruleset) (*Ruleset, error) {
@@ -126,7 +125,7 @@ func (c *client) CreateRuleset(ctx context.Context, p *Ruleset) (*Ruleset, error
 		Set: &Set{
 			Firewall: &Firewall{
 				Rulesets: map[string]*Ruleset{
-					p.Name: p.fromTerraform(),
+					p.Name: p,
 				},
 			},
 		},
@@ -169,10 +168,10 @@ func (c *client) post(ctx context.Context, name string, in Operation) (*Ruleset,
 	}
 
 	defer resp.Body.Close()
-	return getRuleset(name, resp.Body)
+	return toRuleset(name, resp.Body)
 }
 
-func getRuleset(name string, reader io.Reader) (*Ruleset, error) {
+func toRuleset(name string, reader io.Reader) (*Ruleset, error) {
 	var op Operation
 
 	data, err := ioutil.ReadAll(reader)
@@ -201,7 +200,10 @@ func getRuleset(name string, reader io.Reader) (*Ruleset, error) {
 		return nil, errors.New("The ruleset does not exist.")
 	}
 
-	return ruleset.toTerraform(name)
+	ruleset.Name = name
+	return ruleset, nil
+
+	// return ruleset.toTerraform(name)
 }
 
 func (s *Source) port() string {
@@ -212,29 +214,17 @@ func (d *Destination) port() string {
 	return port(d.FromPort, d.ToPort)
 }
 
-func (rs *Ruleset) fromTerraform() *Ruleset {
-	if len(rs.Rules) > 0 {
-		rs.RulesMap = map[string]*Rule{}
+// consider having
+// type ruleMap map[string]*Rule
+// and having a MarshalJSON for that instead.
+func (rs *Ruleset) buildMap() map[string]*Rule {
+	if rs == nil || len(rs.Rules) == 0 {
+		return nil
 	}
 
+	m := map[string]*Rule{}
 	for _, rule := range rs.Rules {
-		rs.RulesMap[strconv.Itoa(rule.Priority)] = rule
+		m[strconv.Itoa(rule.Priority)] = rule
 	}
-	return rs
-}
-
-func (rs *Ruleset) toTerraform(name string) (_ *Ruleset, err error) {
-	rs.Name = name
-
-	for k, v := range rs.RulesMap {
-		i, err := strconv.Atoi(k)
-		if err != nil {
-			return nil, errors.New("Malformed rule priority.")
-		}
-		v.Priority = i
-
-		rs.Rules = append(rs.Rules, v)
-	}
-
-	return rs, nil
+	return m
 }

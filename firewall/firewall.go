@@ -46,6 +46,7 @@ type Rule struct {
 	Source      *Source      `json:"source" tfsdk:"source"`
 	Destination *Destination `json:"destination" tfsdk:"destination"`
 	State       *State       `json:"state" tfsdk:"state"`
+	isTerraform bool
 }
 
 type Ruleset struct {
@@ -53,6 +54,7 @@ type Ruleset struct {
 	Description   string  `json:"description,omitempty" tfsdk:"description"`
 	DefaultAction string  `json:"default-action,omitempty" tfsdk:"default_action"`
 	Rules         []*Rule `json:"-" tfsdk:"rule"` // Omitting the json tag due to custom marshal/unmarshal methods.
+	isTerraform   bool
 }
 
 type Firewall struct {
@@ -214,9 +216,17 @@ func (d *Destination) port() string {
 	return port(d.FromPort, d.ToPort)
 }
 
-// consider having
-// type ruleMap map[string]*Rule
-// and having a MarshalJSON for that instead.
+func (rs *Ruleset) Terraform() {
+	(*rs).isTerraform = true
+}
+
+func (r *Rule) Terraform() {
+	(*r).isTerraform = true
+}
+
+// // consider having
+// // type ruleMap map[string]*Rule
+// // and having a MarshalJSON for that instead.
 func (rs *Ruleset) buildMap() map[string]*Rule {
 	if rs == nil || len(rs.Rules) == 0 {
 		return nil

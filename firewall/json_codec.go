@@ -2,12 +2,8 @@ package firewall
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
-	"math/big"
 	"strconv"
-
-	"github.com/hashicorp/terraform-plugin-go/tftypes"
 )
 
 const (
@@ -106,9 +102,43 @@ func (d *Destination) UnmarshalJSON(data []byte) (err error) {
 	return err
 }
 
+func (r *Rule) MarshalJSON() ([]byte, error) {
+	type Alias Rule
+	if r.isTerraform {
+		return json.Marshal(&struct{
+			Priority int `json:"priority"`
+			*Alias
+		}{
+			Priority: r.Priority,
+			Alias:    (*Alias)(r),
+		})
+	}
+	return json.Marshal(&struct{
+		*Alias
+	}{
+		Alias: (*Alias)(r),
+	})
+	return json.Marshal(r)
+}
+
 func (rs *Ruleset) MarshalJSON() ([]byte, error) {
+	if rs != nil && rs.isTerraform {
+		for _, rule := range rs.Rules {
+			rule.Terraform()
+		}
+	}
+
 	type Alias Ruleset
-	return json.Marshal(&struct {
+	if rs.isTerraform {
+		return json.Marshal(&struct{
+			Rules []*Rule `json:"rule"`
+			*Alias
+		}{
+			Rules: rs.Rules,
+			Alias: (*Alias)(rs),
+		})
+	}
+	return json.Marshal(&struct{
 		RulesMap map[string]*Rule `json:"rule,omitempty"`
 		*Alias
 	}{
@@ -140,70 +170,6 @@ func (rs *Ruleset) UnmarshalJSON(data []byte) (err error) {
 	}
 
 	return nil
-}
-
-func (d *Destination) FromTerraform5Value(v tftypes.Value) error {
-	if !v.IsKnown() {
-		return errors.New("The provided value is unknown. This is an issue with the Terraform SDK.")
-	}
-
-	if v.IsNull() {
-		return nil
-	}
-
-	d.Port = new(Port)
-
-	// medium == "the 'medium in which terraform is using to plumb values to us'"
-	medium := map[string]tftypes.Value{}
-	if err := v.As(&medium); err != nil {
-		return err
-	}
-
-	if err := medium["address"].As(&d.Address); err != nil {
-		return err
-	}
-
-	var fromPort int
-	{
-		port := big.NewFloat(-42)
-		if err := medium["from_port"].As(&port); err != nil {
-			return err
-		}
-		i, _ := port.Int64()
-		fromPort = int(i)
-	}
-	d.Port.FromPort = fromPort
-
-	var toPort int
-	{
-		port := big.NewFloat(-42)
-		if err := medium["to_port"].As(&port); err != nil {
-			return err
-		}
-		i, _ := port.Int64()
-		toPort = int(i)
-	}
-	d.Port.ToPort = toPort
-
-	return nil
-}
-
-func (d *Destination) ToTerraform5Value() (interface{}, error) {
-	if d == nil {
-		return nil, nil
-	}
-
-	var fromPort, toPort *int
-	if d.Port != nil {
-		fromPort = &d.Port.FromPort
-		toPort = &d.Port.ToPort
-	}
-
-	return map[string]tftypes.Value{
-		"address":   tftypes.NewValue(tftypes.String, d.Address),
-		"from_port": tftypes.NewValue(tftypes.Number, fromPort),
-		"to_port":   tftypes.NewValue(tftypes.Number, toPort),
-	}, nil
 }
 
 func (r *Rule) UnmarshalJSON(data []byte) error {

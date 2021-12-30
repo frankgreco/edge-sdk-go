@@ -6,7 +6,7 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/frankgreco/edge-sdk-go/api/firewall"
+	"github.com/frankgreco/edge-sdk-go/types"
 	"github.com/frankgreco/edge-sdk-go/internal/api"
 
 	patcher "github.com/evanphx/json-patch"
@@ -14,9 +14,9 @@ import (
 )
 
 type Client interface {
-	GetRuleset(context.Context, string) (*firewall.Ruleset, error)
-	CreateRuleset(context.Context, *firewall.Ruleset) (*firewall.Ruleset, error)
-	UpdateRuleset(context.Context, *firewall.Ruleset, []jsonpatch.JsonPatchOperation) (*firewall.Ruleset, error)
+	GetRuleset(context.Context, string) (*types.Ruleset, error)
+	CreateRuleset(context.Context, *types.Ruleset) (*types.Ruleset, error)
+	UpdateRuleset(context.Context, *types.Ruleset, []jsonpatch.JsonPatchOperation) (*types.Ruleset, error)
 	DeleteRuleset(context.Context, string) error
 }
 
@@ -30,7 +30,7 @@ func New(httpClient *http.Client, host string) Client {
 	}
 }
 
-func (c *client) GetRuleset(ctx context.Context, name string) (*firewall.Ruleset, error) {
+func (c *client) GetRuleset(ctx context.Context, name string) (*types.Ruleset, error) {
 	op, err := c.apiClient.Get(ctx)
 	if err != nil {
 		return nil, err
@@ -38,12 +38,12 @@ func (c *client) GetRuleset(ctx context.Context, name string) (*firewall.Ruleset
 	return toRuleset(name, op)
 }
 
-func (c *client) CreateRuleset(ctx context.Context, p *firewall.Ruleset) (*firewall.Ruleset, error) {
+func (c *client) CreateRuleset(ctx context.Context, p *types.Ruleset) (*types.Ruleset, error) {
 	op, err := c.apiClient.Post(ctx, &api.Operation{
 		Set: &api.Set{
 			Resources: api.Resources{
-				Firewall: &firewall.Firewall{
-					Rulesets: map[string]*firewall.Ruleset{
+				Firewall: &types.Firewall{
+					Rulesets: map[string]*types.Ruleset{
 						p.Name: p,
 					},
 				},
@@ -60,8 +60,8 @@ func (c *client) DeleteRuleset(ctx context.Context, name string) error {
 	op, err := c.apiClient.Post(ctx, &api.Operation{
 		Delete: &api.Delete{
 			Resources: api.Resources{
-				Firewall: &firewall.Firewall{
-					Rulesets: map[string]*firewall.Ruleset{
+				Firewall: &types.Firewall{
+					Rulesets: map[string]*types.Ruleset{
 						name: nil,
 					},
 				},
@@ -75,7 +75,7 @@ func (c *client) DeleteRuleset(ctx context.Context, name string) error {
 	return err
 }
 
-func (c *client) UpdateRuleset(ctx context.Context, current *firewall.Ruleset, patches []jsonpatch.JsonPatchOperation) (*firewall.Ruleset, error) {
+func (c *client) UpdateRuleset(ctx context.Context, current *types.Ruleset, patches []jsonpatch.JsonPatchOperation) (*types.Ruleset, error) {
 	patchData, err := json.Marshal(patches)
 	if err != nil {
 		return nil, err
@@ -97,7 +97,7 @@ func (c *client) UpdateRuleset(ctx context.Context, current *firewall.Ruleset, p
 		return nil, err
 	}
 
-	var rs firewall.Ruleset
+	var rs types.Ruleset
 	(&rs).Terraform()
 	if err := json.Unmarshal(modifiedData, &rs); err != nil {
 		return nil, err
@@ -106,8 +106,8 @@ func (c *client) UpdateRuleset(ctx context.Context, current *firewall.Ruleset, p
 	op, err := c.apiClient.Post(ctx, &api.Operation{
 		Set: &api.Set{
 			Resources: api.Resources{
-				Firewall: &firewall.Firewall{
-					Rulesets: map[string]*firewall.Ruleset{
+				Firewall: &types.Firewall{
+					Rulesets: map[string]*types.Ruleset{
 						current.Name: &rs,
 					},
 				},
@@ -120,7 +120,7 @@ func (c *client) UpdateRuleset(ctx context.Context, current *firewall.Ruleset, p
 	return toRuleset(current.Name, op)
 }
 
-func toRuleset(name string, op *api.Operation) (*firewall.Ruleset, error) {
+func toRuleset(name string, op *api.Operation) (*types.Ruleset, error) {
 	if op == nil || op.Get == nil || op.Get.Firewall == nil {
 		return nil, errors.New("A firewall does not exist.")
 	}

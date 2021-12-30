@@ -1,4 +1,4 @@
-package firewall
+package types
 
 import (
 	"errors"
@@ -7,6 +7,9 @@ import (
 	"github.com/hashicorp/terraform-plugin-go/tftypes"
 )
 
+// Because Terraform requires `tfsdk` tags on embeded fields, we are operating on the parent
+// type of Port - the type we need to implement ValueConverter on.
+// https://github.com/hashicorp/terraform-plugin-go/issues/131
 func (d *Destination) FromTerraform5Value(v tftypes.Value) error {
 	if !v.IsKnown() {
 		return errors.New("The provided value is unknown. This is an issue with the Terraform SDK.")

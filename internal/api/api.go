@@ -1,8 +1,7 @@
 package api
 
 import (
-	"github.com/frankgreco/edge-sdk-go/api/firewall"
-	"github.com/frankgreco/edge-sdk-go/api/interfaces"
+	"github.com/frankgreco/edge-sdk-go/types"
 )
 
 type Get struct {
@@ -20,8 +19,8 @@ type Delete struct {
 }
 
 type Resources struct {
-	Firewall   *firewall.Firewall     `json:"firewall,omitempty"`
-	Interfaces *interfaces.Interfaces `json:"interfaces,omitempty"`
+	Firewall   *types.Firewall   `json:"firewall,omitempty"`
+	Interfaces *types.Interfaces `json:"interfaces,omitempty"`
 }
 
 type Commit struct {

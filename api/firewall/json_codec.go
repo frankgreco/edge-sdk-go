@@ -105,7 +105,7 @@ func (d *Destination) UnmarshalJSON(data []byte) (err error) {
 func (r *Rule) MarshalJSON() ([]byte, error) {
 	type Alias Rule
 	if r.isTerraform {
-		return json.Marshal(&struct{
+		return json.Marshal(&struct {
 			Priority int `json:"priority"`
 			*Alias
 		}{
@@ -113,7 +113,7 @@ func (r *Rule) MarshalJSON() ([]byte, error) {
 			Alias:    (*Alias)(r),
 		})
 	}
-	return json.Marshal(&struct{
+	return json.Marshal(&struct {
 		*Alias
 	}{
 		Alias: (*Alias)(r),
@@ -130,25 +130,35 @@ func (rs *Ruleset) MarshalJSON() ([]byte, error) {
 
 	type Alias Ruleset
 	if rs.isTerraform {
-		return json.Marshal(&struct{
-			Rules []*Rule `json:"rule"`
+		return json.Marshal(&struct {
+			Rules []*Rule `json:"rule,omitempty"`
 			*Alias
 		}{
 			Rules: rs.Rules,
 			Alias: (*Alias)(rs),
 		})
 	}
-	return json.Marshal(&struct{
+	return json.Marshal(&struct {
 		RulesMap map[string]*Rule `json:"rule,omitempty"`
 		*Alias
 	}{
-		RulesMap: rs.buildMap(),
+		RulesMap: buildMap(rs),
 		Alias:    (*Alias)(rs),
 	})
 }
 
 func (rs *Ruleset) UnmarshalJSON(data []byte) (err error) {
 	type Alias Ruleset
+
+	if rs.isTerraform {
+		return json.Unmarshal(data, &struct {
+			Rules []*Rule `json:"rule,omitempty"`
+			*Alias
+		}{
+			Alias: (*Alias)(rs),
+		})
+	}
+
 	aux := &struct {
 		RulesMap map[string]*Rule `json:"rule,omitempty"`
 		*Alias
@@ -188,4 +198,19 @@ func (r *Rule) UnmarshalJSON(data []byte) error {
 	}
 
 	return nil
+}
+
+// // consider having
+// // type ruleMap map[string]*Rule
+// // and having a MarshalJSON for that instead.
+func buildMap(rs *Ruleset) map[string]*Rule {
+	if rs == nil || len(rs.Rules) == 0 {
+		return nil
+	}
+
+	m := map[string]*Rule{}
+	for _, rule := range rs.Rules {
+		m[strconv.Itoa(rule.Priority)] = rule
+	}
+	return m
 }

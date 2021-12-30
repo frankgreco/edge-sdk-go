@@ -8,10 +8,12 @@ import (
 	"strings"
 
 	"github.com/frankgreco/edge-sdk-go/firewall"
+	"github.com/frankgreco/edge-sdk-go/interfaces"
 )
 
 type Client struct {
-	Firewall firewall.Client
+	Firewall   firewall.Client
+	Interfaces *interfaces.Client
 }
 
 func Login(host, username, password string) (*Client, error) {
@@ -45,6 +47,7 @@ func Login(host, username, password string) (*Client, error) {
 	defer resp.Body.Close()
 
 	return &Client{
-		Firewall: firewall.New(httpClient, host),
+		Firewall:   firewall.New(httpClient, host),
+		Interfaces: interfaces.New(httpClient, host),
 	}, nil
 }

@@ -63,8 +63,8 @@ func (o *DHCPOptions) MarshalJSON() ([]byte, error) {
 		DefaultRouteDistance string `json:"default-route-distance,omitempty"`
 		*Alias
 	}{
-		DefaultRouteDistance:  strconv.Itoa(o.DefaultRouteDistance),
-		Alias: (*Alias)(o),
+		DefaultRouteDistance: strconv.Itoa(o.DefaultRouteDistance),
+		Alias:                (*Alias)(o),
 	})
 }
 

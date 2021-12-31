@@ -138,7 +138,7 @@ func (c *client) UpdateRuleset(ctx context.Context, current *types.Ruleset, patc
 				Resources: api.Resources{
 					Firewall: &types.Firewall{
 						Rulesets: map[string]*types.Ruleset{
-							current.Name: &types.Ruleset{
+							current.Name: {
 								Rules: discard,
 							},
 						},

@@ -18,6 +18,7 @@ type FirewallAttachment struct {
 }
 
 type Ethernet struct {
+	ID          string              `json:"-" tfsdk:"id"`
 	Addresses   []string            `json:"address,omitempty"`
 	Description string              `json:"description,omitempty"`
 	DHCPOptions *DHCPOptions        `json:"dhcp-options,omitempty"`

@@ -47,7 +47,7 @@ type Ruleset struct {
 	DefaultAction string  `json:"default-action,omitempty" tfsdk:"default_action"`
 	Rules         []*Rule `json:"-" tfsdk:"rule"` // Omitting the json tag due to custom marshal/unmarshal methods.
 	codecMode     CodecMode
-	opMode OpMode
+	opMode        OpMode
 }
 
 type Firewall struct {

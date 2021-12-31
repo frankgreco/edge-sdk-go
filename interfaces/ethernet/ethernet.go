@@ -40,7 +40,7 @@ func (c *client) AttachFirewallRuleset(ctx context.Context, id string, firewall 
 			Resources: api.Resources{
 				Interfaces: &types.Interfaces{
 					Ethernet: map[string]*types.Ethernet{
-						id: &types.Ethernet{
+						id: {
 							Firewall: firewall,
 						},
 					},

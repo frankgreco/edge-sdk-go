@@ -38,7 +38,7 @@ type Rule struct {
 	Source      *Source      `json:"source" tfsdk:"source"`
 	Destination *Destination `json:"destination" tfsdk:"destination"`
 	State       *State       `json:"state" tfsdk:"state"`
-	isTerraform bool
+	codecMode   CodecMode
 }
 
 type Ruleset struct {
@@ -46,19 +46,24 @@ type Ruleset struct {
 	Description   string  `json:"description,omitempty" tfsdk:"description"`
 	DefaultAction string  `json:"default-action,omitempty" tfsdk:"default_action"`
 	Rules         []*Rule `json:"-" tfsdk:"rule"` // Omitting the json tag due to custom marshal/unmarshal methods.
-	isTerraform   bool
+	codecMode     CodecMode
+	opMode OpMode
 }
 
 type Firewall struct {
 	Rulesets map[string]*Ruleset `json:"name"`
 }
 
-func (rs *Ruleset) Terraform() {
-	(*rs).isTerraform = true
+func (rs *Ruleset) SetCodecMode(c CodecMode) {
+	(*rs).codecMode = c
 }
 
-func (r *Rule) Terraform() {
-	(*r).isTerraform = true
+func (rs *Ruleset) SetOpMode(m OpMode) {
+	(*rs).opMode = m
+}
+
+func (r *Rule) SetCodecMode(c CodecMode) {
+	(*r).codecMode = c
 }
 
 func (s *Source) port() string {

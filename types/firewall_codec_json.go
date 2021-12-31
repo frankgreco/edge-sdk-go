@@ -10,6 +10,13 @@ const (
 	enable = "enable"
 )
 
+type CodecMode int
+
+const (
+	CodecModeRemote CodecMode = iota
+	CodecModeLocal
+)
+
 type apiState struct {
 	Established string `json:"established"`
 	Invalid     string `json:"invalid"`
@@ -102,61 +109,57 @@ func (d *Destination) UnmarshalJSON(data []byte) (err error) {
 	return err
 }
 
-func (r *Rule) MarshalJSON() ([]byte, error) {
-	type Alias Rule
-	if r.isTerraform {
-		return json.Marshal(&struct {
-			Priority int `json:"priority"`
-			*Alias
-		}{
-			Priority: r.Priority,
-			Alias:    (*Alias)(r),
-		})
-	}
-	return json.Marshal(&struct {
-		*Alias
-	}{
-		Alias: (*Alias)(r),
-	})
-	return json.Marshal(r)
-}
-
 func (rs *Ruleset) MarshalJSON() ([]byte, error) {
-	if rs != nil && rs.isTerraform {
-		for _, rule := range rs.Rules {
-			rule.Terraform()
+	for _, rule := range rs.Rules {
+		rule.SetCodecMode(rs.codecMode)
+	}
+
+	var isDelete bool
+	{
+		if rs.opMode == OpModeDelete {
+			isDelete = true
 		}
 	}
 
-	type Alias Ruleset
-	if rs.isTerraform {
-		return json.Marshal(&struct {
-			Rules []*Rule `json:"rule,omitempty"`
-			*Alias
-		}{
-			Rules: rs.Rules,
-			Alias: (*Alias)(rs),
-		})
+	var data interface{}
+	{
+		type Alias Ruleset
+		if rs.codecMode == CodecModeLocal {
+			data = &struct {
+				Rules []*Rule `json:"rule,omitempty"`
+				*Alias
+			}{
+				Rules: rs.Rules,
+				Alias: (*Alias)(rs),
+			}
+		} else {
+			data = &struct {
+				RulesMap map[string]*Rule `json:"rule,omitempty"`
+				*Alias
+			}{
+				RulesMap: buildMap(rs, isDelete),
+				Alias:    (*Alias)(rs),
+			}
+		}
 	}
-	return json.Marshal(&struct {
-		RulesMap map[string]*Rule `json:"rule,omitempty"`
-		*Alias
-	}{
-		RulesMap: buildMap(rs),
-		Alias:    (*Alias)(rs),
-	})
+	return json.Marshal(data)
 }
 
 func (rs *Ruleset) UnmarshalJSON(data []byte) (err error) {
 	type Alias Ruleset
 
-	if rs.isTerraform {
-		return json.Unmarshal(data, &struct {
+	if rs.codecMode == CodecModeLocal {
+		aux := &struct {
 			Rules []*Rule `json:"rule,omitempty"`
 			*Alias
 		}{
 			Alias: (*Alias)(rs),
-		})
+		}
+		if err := json.Unmarshal(data, &aux); err != nil {
+			return err
+		}
+		rs.Rules = aux.Rules
+		return nil
 	}
 
 	aux := &struct {
@@ -175,16 +178,41 @@ func (rs *Ruleset) UnmarshalJSON(data []byte) (err error) {
 			return fmt.Errorf("malformed rule priority: %v", k)
 		}
 		v.Priority = i
-
 		rs.Rules = append(rs.Rules, v)
 	}
-
 	return nil
+}
+
+func (r *Rule) MarshalJSON() ([]byte, error) {
+	var data interface{}
+	{
+		type Alias Rule
+		if r.codecMode == CodecModeLocal {
+			data = &struct {
+				Priority int `json:"priority"`
+				*Alias
+			}{
+				Priority: r.Priority,
+				Alias:    (*Alias)(r),
+			}
+		} else {
+			if r.Protocol == "*" {
+				r.Protocol = ""
+			}
+			data = &struct {
+				*Alias
+			}{
+				Alias: (*Alias)(r),
+			}
+		}
+	}
+	return json.Marshal(data)
 }
 
 func (r *Rule) UnmarshalJSON(data []byte) error {
 	type Alias Rule
 	aux := &struct {
+		Priority int `json:"priority"`
 		*Alias
 	}{
 		Alias: (*Alias)(r),
@@ -192,25 +220,29 @@ func (r *Rule) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &aux); err != nil {
 		return err
 	}
+	r.Priority = aux.Priority
 
 	if aux.Protocol == "" {
 		r.Protocol = "*"
 	}
-
 	return nil
 }
 
 // // consider having
 // // type ruleMap map[string]*Rule
 // // and having a MarshalJSON for that instead.
-func buildMap(rs *Ruleset) map[string]*Rule {
+func buildMap(rs *Ruleset, isDelete bool) map[string]*Rule {
 	if rs == nil || len(rs.Rules) == 0 {
 		return nil
 	}
 
 	m := map[string]*Rule{}
 	for _, rule := range rs.Rules {
-		m[strconv.Itoa(rule.Priority)] = rule
+		if isDelete {
+			m[strconv.Itoa(rule.Priority)] = nil
+		} else {
+			m[strconv.Itoa(rule.Priority)] = rule
+		}
 	}
 	return m
 }

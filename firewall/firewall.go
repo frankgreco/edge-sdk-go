@@ -6,8 +6,8 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/frankgreco/edge-sdk-go/types"
 	"github.com/frankgreco/edge-sdk-go/internal/api"
+	"github.com/frankgreco/edge-sdk-go/types"
 
 	patcher "github.com/evanphx/json-patch"
 	"github.com/mattbaird/jsonpatch"
@@ -39,7 +39,7 @@ func (c *client) GetRuleset(ctx context.Context, name string) (*types.Ruleset, e
 }
 
 func (c *client) CreateRuleset(ctx context.Context, p *types.Ruleset) (*types.Ruleset, error) {
-	op, err := c.apiClient.Post(ctx, &api.Operation{
+	_, err := c.apiClient.Post(ctx, &api.Operation{
 		Set: &api.Set{
 			Resources: api.Resources{
 				Firewall: &types.Firewall{
@@ -53,11 +53,11 @@ func (c *client) CreateRuleset(ctx context.Context, p *types.Ruleset) (*types.Ru
 	if err != nil {
 		return nil, err
 	}
-	return toRuleset(p.Name, op)
+	return c.GetRuleset(ctx, p.Name)
 }
 
 func (c *client) DeleteRuleset(ctx context.Context, name string) error {
-	op, err := c.apiClient.Post(ctx, &api.Operation{
+	_, err := c.apiClient.Post(ctx, &api.Operation{
 		Delete: &api.Delete{
 			Resources: api.Resources{
 				Firewall: &types.Firewall{
@@ -68,14 +68,12 @@ func (c *client) DeleteRuleset(ctx context.Context, name string) error {
 			},
 		},
 	})
-	if err != nil {
-		return err
-	}
-	_, err = toRuleset(name, op)
 	return err
 }
 
 func (c *client) UpdateRuleset(ctx context.Context, current *types.Ruleset, patches []jsonpatch.JsonPatchOperation) (*types.Ruleset, error) {
+	current.SetCodecMode(types.CodecModeLocal)
+
 	patchData, err := json.Marshal(patches)
 	if err != nil {
 		return nil, err
@@ -86,7 +84,6 @@ func (c *client) UpdateRuleset(ctx context.Context, current *types.Ruleset, patc
 		return nil, err
 	}
 
-	current.Terraform()
 	currentData, err := json.Marshal(current)
 	if err != nil {
 		return nil, err
@@ -98,26 +95,64 @@ func (c *client) UpdateRuleset(ctx context.Context, current *types.Ruleset, patc
 	}
 
 	var rs types.Ruleset
-	(&rs).Terraform()
-	if err := json.Unmarshal(modifiedData, &rs); err != nil {
-		return nil, err
+	{
+		rs.SetCodecMode(types.CodecModeLocal)
+		if err := json.Unmarshal(modifiedData, &rs); err != nil {
+			return nil, err
+		}
 	}
 
-	op, err := c.apiClient.Post(ctx, &api.Operation{
-		Set: &api.Set{
-			Resources: api.Resources{
-				Firewall: &types.Firewall{
-					Rulesets: map[string]*types.Ruleset{
-						current.Name: &rs,
+	var discard []*types.Rule
+	{
+		modifiedRuleKeys := map[int]bool{}
+		for _, rule := range rs.Rules {
+			modifiedRuleKeys[rule.Priority] = true
+		}
+		for _, rule := range current.Rules {
+			if _, ok := modifiedRuleKeys[rule.Priority]; !ok {
+				discard = append(discard, &types.Rule{
+					Priority: rule.Priority,
+				})
+			}
+		}
+	}
+
+	rs.SetCodecMode(types.CodecModeRemote)
+
+	var in *api.Operation
+	{
+		in = &api.Operation{
+			Set: &api.Set{
+				Resources: api.Resources{
+					Firewall: &types.Firewall{
+						Rulesets: map[string]*types.Ruleset{
+							current.Name: &rs,
+						},
 					},
 				},
 			},
-		},
-	})
-	if err != nil {
+		}
+
+		if len(discard) > 0 {
+			in.Delete = &api.Delete{
+				Resources: api.Resources{
+					Firewall: &types.Firewall{
+						Rulesets: map[string]*types.Ruleset{
+							current.Name: &types.Ruleset{
+								Rules: discard,
+							},
+						},
+					},
+				},
+			}
+			in.Delete.Firewall.Rulesets[current.Name].SetOpMode(types.OpModeDelete)
+		}
+	}
+
+	if _, err := c.apiClient.Post(ctx, in); err != nil {
 		return nil, err
 	}
-	return toRuleset(current.Name, op)
+	return c.GetRuleset(ctx, current.Name)
 }
 
 func toRuleset(name string, op *api.Operation) (*types.Ruleset, error) {

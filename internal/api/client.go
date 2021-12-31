@@ -5,11 +5,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
-	"os"
 )
 
 const (
@@ -47,8 +45,6 @@ func (c *client) Post(ctx context.Context, in *Operation) (*Operation, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	fmt.Fprintf(os.Stderr, "%s", string(data))
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/api/edge/batch.json", bytes.NewBuffer(data))
 	if err != nil {

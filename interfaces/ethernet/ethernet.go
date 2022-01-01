@@ -2,17 +2,22 @@ package ethernet
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 
 	"github.com/frankgreco/edge-sdk-go/internal/api"
 	"github.com/frankgreco/edge-sdk-go/types"
+
+	patcher "github.com/evanphx/json-patch"
+	"github.com/mattbaird/jsonpatch"
 )
 
 type Client interface {
 	Get(context.Context, string) (*types.Ethernet, error)
 	AttachFirewallRuleset(context.Context, string, *types.FirewallAttachment) (*types.FirewallAttachment, error)
+	UpdateFirewallRulesetAttachment(context.Context, *types.FirewallAttachment, []jsonpatch.JsonPatchOperation) (*types.FirewallAttachment, error)
 	DetachFirewallRuleset(context.Context, string) error
 }
 
@@ -58,8 +63,101 @@ func (c *client) AttachFirewallRuleset(ctx context.Context, id string, firewall 
 	return ethernet.Firewall, nil // TODO: Potentially return error if no firewalls are attached.
 }
 
+func (c *client) UpdateFirewallRulesetAttachment(ctx context.Context, current *types.FirewallAttachment, patches []jsonpatch.JsonPatchOperation) (*types.FirewallAttachment, error) {
+	patchData, err := json.Marshal(patches)
+	if err != nil {
+		return nil, err
+	}
+
+	patchObj, err := patcher.DecodePatch(patchData)
+	if err != nil {
+		return nil, err
+	}
+
+	currentData, err := json.Marshal(current)
+	if err != nil {
+		return nil, err
+	}
+
+	modifiedData, err := patchObj.Apply(currentData)
+	if err != nil {
+		return nil, err
+	}
+
+	var a types.FirewallAttachment
+	if err := json.Unmarshal(modifiedData, &a); err != nil {
+		return nil, err
+	}
+
+	var del types.FirewallAttachment
+	{
+		empty := ""
+
+		if a.In != nil && *a.In != "" {
+			del.In = &empty
+		}
+		if a.Out != nil && *a.Out != "" {
+			del.Out = &empty
+		}
+		if a.Local != nil && *a.Local != "" {
+			del.Local = &empty
+		}
+	}
+
+	in := &api.Operation{
+		Set: &api.Set{
+			Resources: api.Resources{
+				Interfaces: &types.Interfaces{
+					Ethernet: map[string]*types.Ethernet{
+						current.Interface: {
+							Firewall: &a,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	if del.In != nil || del.Out != nil || del.Local != nil {
+		in.Delete = &api.Delete{
+			Resources: api.Resources{
+				Interfaces: &types.Interfaces{
+					Ethernet: map[string]*types.Ethernet{
+						current.Interface: {
+							Firewall: &del,
+						},
+					},
+				},
+			},
+		}
+	}
+
+	if _, err := c.apiClient.Post(ctx, in); err != nil {
+		return nil, err
+	}
+
+	after, err := c.Get(ctx, current.Interface)
+	if err != nil {
+		return nil, err
+	}
+	return after.Firewall, nil
+}
+
 func (c *client) DetachFirewallRuleset(ctx context.Context, id string) error {
-	return nil
+	_, err := c.apiClient.Post(ctx, &api.Operation{
+		Delete: &api.Delete{
+			Resources: api.Resources{
+				Interfaces: &types.Interfaces{
+					Ethernet: map[string]*types.Ethernet{
+						id: {
+							Firewall: nil,
+						},
+					},
+				},
+			},
+		},
+	})
+	return err
 }
 
 func toEthernet(id string, op *api.Operation) (*types.Ethernet, error) {

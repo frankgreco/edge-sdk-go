@@ -11,10 +11,10 @@ type IP struct {
 }
 
 type FirewallAttachment struct {
-	Interface string `json:"-" tfsdk:"interface"`
-	In        string `tfsdk:"in"`
-	Out       string `tfsdk:"out"`
-	Local     string `tfsdk:"local"`
+	Interface string  `json:"-" tfsdk:"interface"`
+	In        *string `json:"in,omitempty" tfsdk:"in"`
+	Out       *string `json:"out,omitempty" tfsdk:"out"`
+	Local     *string `json:"local,omitempty" tfsdk:"local"`
 }
 
 type Ethernet struct {
@@ -25,5 +25,5 @@ type Ethernet struct {
 	Duplex      string              `json:"duplex,omitempty"`
 	Speed       string              `json:"speed,omitempty"`
 	IP          *IP                 `json:"ip,omitempty"`
-	Firewall    *FirewallAttachment `json:"firewall,omitempty"`
+	Firewall    *FirewallAttachment `json:"firewall"`
 }

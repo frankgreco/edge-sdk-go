@@ -6,31 +6,31 @@ import (
 )
 
 type apiFirewallDetails struct {
-	Name string `json:"name,omitempty"`
+	Name string `json:"name"`
 }
 
 type apiFirewall struct {
-	In    *apiFirewallDetails `json:"in,omitempty"`
-	Out   *apiFirewallDetails `json:"out,omitempty"`
-	Local *apiFirewallDetails `json:"local,omitempty"`
+	In    *apiFirewallDetails `json:"in"`
+	Out   *apiFirewallDetails `json:"out"`
+	Local *apiFirewallDetails `json:"local"`
 }
 
 func (f *FirewallAttachment) MarshalJSON() ([]byte, error) {
 	af := new(apiFirewall)
 
-	if f.In != "" {
+	if f.In != nil && *f.In != "" {
 		af.In = &apiFirewallDetails{
-			Name: f.In,
+			Name: *f.In,
 		}
 	}
-	if f.Out != "" {
+	if f.Out != nil && *f.Out != "" {
 		af.Out = &apiFirewallDetails{
-			Name: f.Out,
+			Name: *f.Out,
 		}
 	}
-	if f.Local != "" {
+	if f.Local != nil && *f.Local != "" {
 		af.Local = &apiFirewallDetails{
-			Name: f.Local,
+			Name: *f.Local,
 		}
 	}
 
@@ -44,14 +44,14 @@ func (f *FirewallAttachment) UnmarshalJSON(data []byte) (err error) {
 		return err
 	}
 
-	if ap.In != nil {
-		f.In = ap.In.Name
+	if ap.In != nil && ap.In.Name != "" {
+		f.In = &ap.In.Name
 	}
-	if ap.Out != nil {
-		f.Out = ap.Out.Name
+	if ap.Out != nil && ap.Out.Name != "" {
+		f.Out = &ap.Out.Name
 	}
-	if ap.Local != nil {
-		f.Local = ap.Local.Name
+	if ap.Local != nil && ap.Local.Name != "" {
+		f.Local = &ap.Local.Name
 	}
 
 	return nil

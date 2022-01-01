@@ -5,8 +5,8 @@ import (
 )
 
 type status struct {
-	Success string `json:"success,omitempty"`
-	Failure string `json:"failure,omitempty"`
+	Success string `json:"success"`
+	Failure string `json:"failure"`
 }
 
 func (out *Status) UnmarshalJSON(data []byte) error {
@@ -20,7 +20,7 @@ func (out *Status) UnmarshalJSON(data []byte) error {
 		out = new(Status)
 	}
 
-	out.Success = s.Success == "0"
+	out.Success = s.Success == "1" || s.Failure == ""
 	out.Failure = s.Failure == "1"
 
 	return nil

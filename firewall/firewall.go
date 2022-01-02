@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/frankgreco/edge-sdk-go/internal/api"
+	"github.com/frankgreco/edge-sdk-go/internal/utils"
 	"github.com/frankgreco/edge-sdk-go/types"
 
 	patcher "github.com/evanphx/json-patch"
@@ -18,6 +19,11 @@ type Client interface {
 	CreateRuleset(context.Context, *types.Ruleset) (*types.Ruleset, error)
 	UpdateRuleset(context.Context, *types.Ruleset, []jsonpatch.JsonPatchOperation) (*types.Ruleset, error)
 	DeleteRuleset(context.Context, string) error
+
+	CreateAddressGroup(context.Context, *types.AddressGroup) (*types.AddressGroup, error)
+	GetAddressGroup(context.Context, string) (*types.AddressGroup, error)
+	UpdateAddressGroup(context.Context, *types.AddressGroup, []jsonpatch.JsonPatchOperation) (*types.AddressGroup, error)
+	DeleteAddressGroup(context.Context, string) error
 }
 
 type client struct {
@@ -155,6 +161,112 @@ func (c *client) UpdateRuleset(ctx context.Context, current *types.Ruleset, patc
 	return c.GetRuleset(ctx, current.Name)
 }
 
+func (c *client) CreateAddressGroup(ctx context.Context, g *types.AddressGroup) (*types.AddressGroup, error) {
+	_, err := c.apiClient.Post(ctx, &api.Operation{
+		Set: &api.Set{
+			Resources: api.Resources{
+				Firewall: &types.Firewall{
+					Groups: &types.Groups{
+						Address: map[string]*types.AddressGroup{
+							g.Name: g,
+						},
+					},
+				},
+			},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+	return c.GetAddressGroup(ctx, g.Name)
+}
+
+func (c *client) GetAddressGroup(ctx context.Context, name string) (*types.AddressGroup, error) {
+	op, err := c.apiClient.Get(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return toAddressGroup(name, op)
+}
+
+func (c *client) UpdateAddressGroup(ctx context.Context, current *types.AddressGroup, patches []jsonpatch.JsonPatchOperation) (*types.AddressGroup, error) {
+	var group types.AddressGroup
+	if err := utils.Patch(current, &group, patches); err != nil {
+		return nil, err
+	}
+
+	in := &api.Operation{
+		Set: &api.Set{
+			Resources: api.Resources{
+				Firewall: &types.Firewall{
+					Groups: &types.Groups{
+						Address: map[string]*types.AddressGroup{
+							current.Name: &group,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	var del *api.Delete
+	{
+		shouldDelete := false
+
+		del = &api.Delete{
+			Resources: api.Resources{
+				Firewall: &types.Firewall{
+					Groups: &types.Groups{
+						Address: map[string]*types.AddressGroup{
+							current.Name: new(types.AddressGroup),
+						},
+					},
+				},
+			},
+		}
+
+		if staleCIDRs := utils.StringSliceDiff(group.Cidrs, current.Cidrs); len(staleCIDRs) > 0 {
+			del.Firewall.Groups.Address[current.Name].Cidrs = staleCIDRs
+			shouldDelete = true
+		}
+
+		if group.Description == nil || *group.Description == "" {
+			del.Firewall.Groups.Address[current.Name].Description = current.Description
+			shouldDelete = true
+		}
+
+		if !shouldDelete {
+			del = nil
+		}
+	}
+
+	if del != nil {
+		in.Delete = del
+	}
+
+	if _, err := c.apiClient.Post(ctx, in); err != nil {
+		return nil, err
+	}
+	return c.GetAddressGroup(ctx, current.Name)
+}
+
+func (c *client) DeleteAddressGroup(ctx context.Context, name string) error {
+	_, err := c.apiClient.Post(ctx, &api.Operation{
+		Delete: &api.Delete{
+			Resources: api.Resources{
+				Firewall: &types.Firewall{
+					Groups: &types.Groups{
+						Address: map[string]*types.AddressGroup{
+							name: nil,
+						},
+					},
+				},
+			},
+		},
+	})
+	return err
+}
+
 func toRuleset(name string, op *api.Operation) (*types.Ruleset, error) {
 	if op == nil || op.Get == nil || op.Get.Firewall == nil {
 		return nil, errors.New("A firewall does not exist.")
@@ -171,4 +283,18 @@ func toRuleset(name string, op *api.Operation) (*types.Ruleset, error) {
 
 	ruleset.Name = name
 	return ruleset, nil
+}
+
+func toAddressGroup(name string, op *api.Operation) (*types.AddressGroup, error) {
+	if op == nil || op.Get == nil || op.Get.Firewall == nil || op.Get.Firewall.Groups == nil || op.Get.Firewall.Groups.Address == nil {
+		return nil, errors.New("No address groups exist.")
+	}
+
+	group, ok := op.Get.Firewall.Groups.Address[name]
+	if !ok || group == nil {
+		return nil, errors.New("The address group does not exist.")
+	}
+
+	group.Name = name
+	return group, nil
 }

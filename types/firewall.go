@@ -12,6 +12,12 @@ type Port struct {
 	ToPort   int `json:"-"`
 }
 
+type AddressGroup struct {
+	Name        string   `json:"-" tfsdk:"name"`
+	Description *string  `json:"description,omitempty" tfsdk:"description"`
+	Cidrs       []string `json:"address,omitempty" tfsdk:"cidrs"`
+}
+
 type Source struct {
 	Address string `json:"address" tfsdk:"address"`
 	MAC     string `tfsdk:"mac"`
@@ -50,8 +56,13 @@ type Ruleset struct {
 	opMode        OpMode
 }
 
+type Groups struct {
+	Address map[string]*AddressGroup `json:"address-group"`
+}
+
 type Firewall struct {
-	Rulesets map[string]*Ruleset `json:"name"`
+	Rulesets map[string]*Ruleset `json:"name,omitempty"`
+	Groups   *Groups             `json:"group,omitempty"`
 }
 
 func (rs *Ruleset) SetCodecMode(c CodecMode) {

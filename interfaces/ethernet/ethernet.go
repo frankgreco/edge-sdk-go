@@ -2,15 +2,14 @@ package ethernet
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 
 	"github.com/frankgreco/edge-sdk-go/internal/api"
+	"github.com/frankgreco/edge-sdk-go/internal/utils"
 	"github.com/frankgreco/edge-sdk-go/types"
 
-	patcher "github.com/evanphx/json-patch"
 	"github.com/mattbaird/jsonpatch"
 )
 
@@ -64,28 +63,8 @@ func (c *client) AttachFirewallRuleset(ctx context.Context, id string, firewall 
 }
 
 func (c *client) UpdateFirewallRulesetAttachment(ctx context.Context, current *types.FirewallAttachment, patches []jsonpatch.JsonPatchOperation) (*types.FirewallAttachment, error) {
-	patchData, err := json.Marshal(patches)
-	if err != nil {
-		return nil, err
-	}
-
-	patchObj, err := patcher.DecodePatch(patchData)
-	if err != nil {
-		return nil, err
-	}
-
-	currentData, err := json.Marshal(current)
-	if err != nil {
-		return nil, err
-	}
-
-	modifiedData, err := patchObj.Apply(currentData)
-	if err != nil {
-		return nil, err
-	}
-
 	var a types.FirewallAttachment
-	if err := json.Unmarshal(modifiedData, &a); err != nil {
+	if err := utils.Patch(current, &a, patches); err != nil {
 		return nil, err
 	}
 

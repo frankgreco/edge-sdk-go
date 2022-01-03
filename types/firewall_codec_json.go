@@ -58,10 +58,14 @@ func (s *State) UnmarshalJSON(data []byte) error {
 func (s *Source) MarshalJSON() ([]byte, error) {
 	type Alias Source
 	return json.Marshal(&struct {
-		Port string `json:"port"`
+		Port  string `json:"port"`
+		Group *group `json:"group,omitempty"`
 		*Alias
 	}{
-		Port:  s.port(),
+		Port: s.port(),
+		Group: &group{
+			Address: s.AddressGroup,
+		},
 		Alias: (*Alias)(s),
 	})
 }
@@ -69,7 +73,8 @@ func (s *Source) MarshalJSON() ([]byte, error) {
 func (s *Source) UnmarshalJSON(data []byte) (err error) {
 	type Alias Source
 	aux := &struct {
-		Port string `json:"port"`
+		Port  string `json:"port"`
+		Group *group `json:"group,omitempty"`
 		*Alias
 	}{
 		Alias: (*Alias)(s),
@@ -77,26 +82,27 @@ func (s *Source) UnmarshalJSON(data []byte) (err error) {
 	if err := json.Unmarshal(data, &aux); err != nil {
 		return err
 	}
-	s.Port = new(Port)
-	s.FromPort, s.ToPort, err = ports(aux.Port)
-	return err
-}
 
-func (d *Destination) MarshalJSON() ([]byte, error) {
-	type Alias Destination
-	return json.Marshal(&struct {
-		Port string `json:"port"`
-		*Alias
-	}{
-		Port:  d.port(),
-		Alias: (*Alias)(d),
-	})
+	if aux.Group != nil {
+		s.AddressGroup = aux.Group.Address
+	}
+
+	if aux.Port != "" {
+		s.Port = new(Port)
+		s.FromPort, s.ToPort, err = ports(aux.Port)
+		if err != nil {
+			return fmt.Errorf("Error setting source ports from json `%s`: %s", string(data), err.Error())
+		}
+	}
+
+	return nil
 }
 
 func (d *Destination) UnmarshalJSON(data []byte) (err error) {
 	type Alias Destination
 	aux := &struct {
-		Port string `json:"port"`
+		Port  string `json:"port,omitempty"`
+		Group *group `json:"group,omitempty"`
 		*Alias
 	}{
 		Alias: (*Alias)(d),
@@ -104,9 +110,39 @@ func (d *Destination) UnmarshalJSON(data []byte) (err error) {
 	if err := json.Unmarshal(data, &aux); err != nil {
 		return err
 	}
-	d.Port = new(Port)
-	d.FromPort, d.ToPort, err = ports(aux.Port)
-	return err
+
+	if aux.Group != nil {
+		d.AddressGroup = aux.Group.Address
+	}
+
+	if aux.Port != "" {
+		d.Port = new(Port)
+		d.FromPort, d.ToPort, err = ports(aux.Port)
+		if err != nil {
+			return fmt.Errorf("Error setting destination ports from json `%s`: %s", string(data), err.Error())
+		}
+	}
+
+	return nil
+}
+
+type group struct {
+	Address string `json:"address-group,omitempty"`
+}
+
+func (d *Destination) MarshalJSON() ([]byte, error) {
+	type Alias Destination
+	return json.Marshal(&struct {
+		Port  string `json:"port,omitempty"`
+		Group *group `json:"group,omitempty"`
+		*Alias
+	}{
+		Port: d.port(),
+		Group: &group{
+			Address: d.AddressGroup,
+		},
+		Alias: (*Alias)(d),
+	})
 }
 
 func (rs *Ruleset) MarshalJSON() ([]byte, error) {

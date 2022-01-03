@@ -1,7 +1,6 @@
 package types
 
 import (
-	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -19,13 +18,13 @@ type AddressGroup struct {
 }
 
 type Source struct {
-	Address string `json:"address" tfsdk:"address"`
-	MAC     string `tfsdk:"mac"`
+	AddressGroup string `json:"-" tfsdk:"address_group"`
+	MAC          string `tfsdk:"mac"`
 	*Port
 }
 
 type Destination struct {
-	Address string `json:"address"`
+	AddressGroup string `json:"-" tfsdk:"address_group"`
 	*Port
 }
 
@@ -93,10 +92,14 @@ func port(from, to int) string {
 }
 
 func ports(p string) (int, int, error) {
+	// if p == "" {
+	// 	return 0, 0, nil
+	// }
+
 	if !strings.Contains(p, "-") {
 		i, err := strconv.Atoi(p)
 		if err != nil {
-			return 0, 0, errors.New("Malformed port.")
+			return 0, 0, fmt.Errorf("The port is malformed: %s", err.Error())
 		}
 		return i, i, nil
 	}
@@ -104,11 +107,11 @@ func ports(p string) (int, int, error) {
 	arr := strings.Split(p, "-")
 	from, err := strconv.Atoi(arr[0])
 	if err != nil {
-		return 0, 0, errors.New("Malformed port.")
+		return 0, 0, fmt.Errorf("The \"from\" port is malformed: %s", err.Error())
 	}
 	to, err := strconv.Atoi(arr[1])
 	if err != nil {
-		return 0, 0, errors.New("Malformed port.")
+		return 0, 0, fmt.Errorf("The \"to\" port is malformed: %s", err.Error())
 	}
 
 	return from, to, nil

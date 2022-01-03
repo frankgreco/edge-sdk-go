@@ -26,7 +26,7 @@ func (d *Destination) FromTerraform5Value(v tftypes.Value) error {
 		return err
 	}
 
-	if err := medium["address"].As(&d.Address); err != nil {
+	if err := medium["address_group"].As(&d.AddressGroup); err != nil {
 		return err
 	}
 
@@ -67,8 +67,8 @@ func (d *Destination) ToTerraform5Value() (interface{}, error) {
 	}
 
 	return map[string]tftypes.Value{
-		"address":   tftypes.NewValue(tftypes.String, d.Address),
-		"from_port": tftypes.NewValue(tftypes.Number, fromPort),
-		"to_port":   tftypes.NewValue(tftypes.Number, toPort),
+		"address_group": tftypes.NewValue(tftypes.String, d.AddressGroup),
+		"from_port":     tftypes.NewValue(tftypes.Number, fromPort),
+		"to_port":       tftypes.NewValue(tftypes.Number, toPort),
 	}, nil
 }

@@ -77,6 +77,8 @@ func toOperation(reader io.Reader) (*Operation, error) {
 			return nil, err
 		}
 
+		fmt.Fprintf(os.Stderr, string(data))
+
 		if err := json.Unmarshal([]byte(data), &out); err != nil {
 			return nil, err
 		}

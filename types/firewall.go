@@ -17,6 +17,18 @@ type AddressGroup struct {
 	Cidrs       []string `json:"address,omitempty" tfsdk:"cidrs"`
 }
 
+type PortRange struct {
+	From int `tfsdk:"from"`
+	To   int `tfsdk:"to"`
+}
+
+type PortGroup struct {
+	Name        string       `json:"-" tfsdk:"name"`
+	Description *string      `json:"description,omitempty" tfsdk:"description"`
+	Ports       []int        `json:"-" tfsdk:"ports"`
+	Ranges      []*PortRange `json:"-" tfsdk:"port_ranges"`
+}
+
 type Source struct {
 	AddressGroup string `json:"-" tfsdk:"address_group"`
 	MAC          string `tfsdk:"mac"`
@@ -56,7 +68,8 @@ type Ruleset struct {
 }
 
 type Groups struct {
-	Address map[string]*AddressGroup `json:"address-group"`
+	Address map[string]*AddressGroup `json:"address-group,omitempty"`
+	Port    map[string]*PortGroup    `json:"port-group,omitempty"`
 }
 
 type Firewall struct {
@@ -92,10 +105,6 @@ func port(from, to int) string {
 }
 
 func ports(p string) (int, int, error) {
-	// if p == "" {
-	// 	return 0, 0, nil
-	// }
-
 	if !strings.Contains(p, "-") {
 		i, err := strconv.Atoi(p)
 		if err != nil {
@@ -115,4 +124,60 @@ func ports(p string) (int, int, error) {
 	}
 
 	return from, to, nil
+}
+
+func (g *PortGroup) toPorts() []string {
+	if g == nil || (len(g.Ports) == 0 && len(g.Ranges) == 0) {
+		return nil
+	}
+
+	ports := []string{}
+	for _, port := range g.Ports {
+		ports = append(ports, strconv.Itoa(port))
+	}
+
+	for _, portRange := range g.Ranges {
+		if portRange == nil {
+			continue
+		}
+		if portRange.From != portRange.To {
+			ports = append(ports, fmt.Sprintf("%s-%s", strconv.Itoa(portRange.From), strconv.Itoa(portRange.To)))
+		}
+	}
+
+	return ports
+}
+
+func (g *PortGroup) fromPorts(ports []string) error {
+	for _, port := range ports {
+		if !strings.Contains(port, "-") {
+			i, err := strconv.Atoi(port)
+			if err != nil {
+				return fmt.Errorf("Could not turn %s into a valid port: %s", port, err.Error())
+			}
+			if g.Ports == nil {
+				g.Ports = []int{}
+			}
+			g.Ports = append(g.Ports, i)
+			continue
+		}
+		fromTo := strings.Split(port, "-")
+		from, err := strconv.Atoi(fromTo[0])
+		if err != nil {
+			return fmt.Errorf("The \"from\" port is malformed for port range %s: %s", port, err.Error())
+		}
+		to, err := strconv.Atoi(fromTo[1])
+		if err != nil {
+			return fmt.Errorf("The \"to\" port is malformed for port range %s: %s", port, err.Error())
+		}
+		if g.Ranges == nil {
+			g.Ranges = []*PortRange{}
+		}
+		g.Ranges = append(g.Ranges, &PortRange{
+			From: from,
+			To:   to,
+		})
+	}
+
+	return nil
 }

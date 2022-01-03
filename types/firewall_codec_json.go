@@ -126,10 +126,6 @@ func (d *Destination) UnmarshalJSON(data []byte) (err error) {
 	return nil
 }
 
-type group struct {
-	Address string `json:"address-group,omitempty"`
-}
-
 func (d *Destination) MarshalJSON() ([]byte, error) {
 	type Alias Destination
 	return json.Marshal(&struct {
@@ -142,6 +138,42 @@ func (d *Destination) MarshalJSON() ([]byte, error) {
 			Address: d.AddressGroup,
 		},
 		Alias: (*Alias)(d),
+	})
+}
+
+type group struct {
+	Address string `json:"address-group,omitempty"`
+}
+
+func (g *PortGroup) UnmarshalJSON(data []byte) (err error) {
+	type Alias PortGroup
+	aux := &struct {
+		Ports []string `json:"port,omitempty"`
+		*Alias
+	}{
+		Alias: (*Alias)(g),
+	}
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+
+	if len(aux.Ports) > 0 {
+		if err := g.fromPorts(aux.Ports); err != nil {
+			return fmt.Errorf("Error setting ports on port group from json `%s`: %s", string(data), err.Error())
+		}
+	}
+
+	return nil
+}
+
+func (g *PortGroup) MarshalJSON() ([]byte, error) {
+	type Alias PortGroup
+	return json.Marshal(&struct {
+		Ports []string `json:"port,omitempty"`
+		*Alias
+	}{
+		Ports: g.toPorts(),
+		Alias: (*Alias)(g),
 	})
 }
 

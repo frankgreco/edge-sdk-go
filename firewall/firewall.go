@@ -24,6 +24,11 @@ type Client interface {
 	GetAddressGroup(context.Context, string) (*types.AddressGroup, error)
 	UpdateAddressGroup(context.Context, *types.AddressGroup, []jsonpatch.JsonPatchOperation) (*types.AddressGroup, error)
 	DeleteAddressGroup(context.Context, string) error
+
+	CreatePortGroup(context.Context, *types.PortGroup) (*types.PortGroup, error)
+	GetPortGroup(context.Context, string) (*types.PortGroup, error)
+	UpdatePortGroup(context.Context, *types.PortGroup, []jsonpatch.JsonPatchOperation) (*types.PortGroup, error)
+	DeletePortGroup(context.Context, string) error
 }
 
 type client struct {
@@ -267,6 +272,55 @@ func (c *client) DeleteAddressGroup(ctx context.Context, name string) error {
 	return err
 }
 
+func (c *client) CreatePortGroup(ctx context.Context, g *types.PortGroup) (*types.PortGroup, error) {
+	_, err := c.apiClient.Post(ctx, &api.Operation{
+		Set: &api.Set{
+			Resources: api.Resources{
+				Firewall: &types.Firewall{
+					Groups: &types.Groups{
+						Port: map[string]*types.PortGroup{
+							g.Name: g,
+						},
+					},
+				},
+			},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+	return c.GetPortGroup(ctx, g.Name)
+}
+
+func (c *client) GetPortGroup(ctx context.Context, name string) (*types.PortGroup, error) {
+	op, err := c.apiClient.Get(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return toPortGroup(name, op)
+}
+
+func (c *client) UpdatePortGroup(context.Context, *types.PortGroup, []jsonpatch.JsonPatchOperation) (*types.PortGroup, error) {
+	return nil, nil
+}
+
+func (c *client) DeletePortGroup(ctx context.Context, name string) error {
+	_, err := c.apiClient.Post(ctx, &api.Operation{
+		Delete: &api.Delete{
+			Resources: api.Resources{
+				Firewall: &types.Firewall{
+					Groups: &types.Groups{
+						Port: map[string]*types.PortGroup{
+							name: nil,
+						},
+					},
+				},
+			},
+		},
+	})
+	return err
+}
+
 func toRuleset(name string, op *api.Operation) (*types.Ruleset, error) {
 	if op == nil || op.Get == nil || op.Get.Firewall == nil {
 		return nil, errors.New("A firewall does not exist.")
@@ -293,6 +347,20 @@ func toAddressGroup(name string, op *api.Operation) (*types.AddressGroup, error)
 	group, ok := op.Get.Firewall.Groups.Address[name]
 	if !ok || group == nil {
 		return nil, errors.New("The address group does not exist.")
+	}
+
+	group.Name = name
+	return group, nil
+}
+
+func toPortGroup(name string, op *api.Operation) (*types.PortGroup, error) {
+	if op == nil || op.Get == nil || op.Get.Firewall == nil || op.Get.Firewall.Groups == nil || op.Get.Firewall.Groups.Port == nil {
+		return nil, errors.New("No port groups exist.")
+	}
+
+	group, ok := op.Get.Firewall.Groups.Port[name]
+	if !ok || group == nil {
+		return nil, errors.New("The port group does not exist.")
 	}
 
 	group.Name = name

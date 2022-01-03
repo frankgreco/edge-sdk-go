@@ -6,11 +6,6 @@ import (
 	"strings"
 )
 
-type Port struct {
-	FromPort int `json:"-"`
-	ToPort   int `json:"-"`
-}
-
 type AddressGroup struct {
 	Name        string   `json:"-" tfsdk:"name"`
 	Description *string  `json:"description,omitempty" tfsdk:"description"`
@@ -30,14 +25,18 @@ type PortGroup struct {
 }
 
 type Source struct {
-	AddressGroup string `json:"-" tfsdk:"address_group"`
-	MAC          string `tfsdk:"mac"`
-	*Port
+	Address      *string    `json:"address" tfsdk:"address"`
+	AddressGroup *string    `json:"-" tfsdk:"address_group"`
+	PortGroup    *string    `json:"-" tfsdk:"port_group"`
+	Port         *PortRange `json:"-" tfsdk:"port"`
+	MAC          *string    `tfsdk:"mac"`
 }
 
 type Destination struct {
-	AddressGroup string `json:"-" tfsdk:"address_group"`
-	*Port
+	Address      *string    `json:"address" tfsdk:"address"`
+	AddressGroup *string    `json:"-" tfsdk:"address_group"`
+	PortGroup    *string    `json:"-" tfsdk:"port_group"`
+	Port         *PortRange `json:"-" tfsdk:"port"`
 }
 
 type State struct {
@@ -89,41 +88,72 @@ func (r *Rule) SetCodecMode(c CodecMode) {
 	(*r).codecMode = c
 }
 
-func (s *Source) port() string {
-	return port(s.FromPort, s.ToPort)
+func (s *Source) toPort() string {
+	return s.Port.toPort()
 }
 
-func (d *Destination) port() string {
-	return port(d.FromPort, d.ToPort)
+func (d *Destination) toPort() string {
+	return d.Port.toPort()
 }
 
-func port(from, to int) string {
-	if from == to {
-		return strconv.Itoa(from)
+func (p *PortRange) toPort() string {
+	if p == nil {
+		return ""
 	}
-	return fmt.Sprintf("%d-%d", from, to)
+
+	if p.From == p.To {
+		return strconv.Itoa(p.From)
+	}
+	return fmt.Sprintf("%d-%d", p.From, p.To)
 }
 
-func ports(p string) (int, int, error) {
-	if !strings.Contains(p, "-") {
-		i, err := strconv.Atoi(p)
+func (s *Source) fromPort(port string) error {
+	portRange, err := fromPort(port)
+	if err != nil {
+		return err
+	}
+	s.Port = portRange
+	return nil
+}
+
+func (d *Destination) fromPort(port string) error {
+	portRange, err := fromPort(port)
+	if err != nil {
+		return err
+	}
+	d.Port = portRange
+	return nil
+}
+
+func fromPort(port string) (p *PortRange, err error) {
+	if port == "" {
+		return nil, nil
+	}
+
+	var from, to int
+
+	if !strings.Contains(port, "-") {
+		from, err = strconv.Atoi(port)
 		if err != nil {
-			return 0, 0, fmt.Errorf("The port is malformed: %s", err.Error())
+			return nil, fmt.Errorf("Could not turn %s into a valid port: %s", port, err.Error())
 		}
-		return i, i, nil
+		to = from
+	} else {
+		fromTo := strings.Split(port, "-")
+		from, err = strconv.Atoi(fromTo[0])
+		if err != nil {
+			return nil, fmt.Errorf("The \"from\" port is malformed for port range %s: %s", port, err.Error())
+		}
+		to, err = strconv.Atoi(fromTo[1])
+		if err != nil {
+			return nil, fmt.Errorf("The \"to\" port is malformed for port range %s: %s", port, err.Error())
+		}
 	}
 
-	arr := strings.Split(p, "-")
-	from, err := strconv.Atoi(arr[0])
-	if err != nil {
-		return 0, 0, fmt.Errorf("The \"from\" port is malformed: %s", err.Error())
-	}
-	to, err := strconv.Atoi(arr[1])
-	if err != nil {
-		return 0, 0, fmt.Errorf("The \"to\" port is malformed: %s", err.Error())
-	}
-
-	return from, to, nil
+	return &PortRange{
+		From: from,
+		To:   to,
+	}, nil
 }
 
 func (g *PortGroup) toPorts() []string {

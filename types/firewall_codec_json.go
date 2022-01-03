@@ -62,9 +62,10 @@ func (s *Source) MarshalJSON() ([]byte, error) {
 		Group *group `json:"group,omitempty"`
 		*Alias
 	}{
-		Port: s.port(),
+		Port: s.toPort(),
 		Group: &group{
 			Address: s.AddressGroup,
+			Port:    s.PortGroup,
 		},
 		Alias: (*Alias)(s),
 	})
@@ -85,14 +86,11 @@ func (s *Source) UnmarshalJSON(data []byte) (err error) {
 
 	if aux.Group != nil {
 		s.AddressGroup = aux.Group.Address
+		s.PortGroup = aux.Group.Port
 	}
 
-	if aux.Port != "" {
-		s.Port = new(Port)
-		s.FromPort, s.ToPort, err = ports(aux.Port)
-		if err != nil {
-			return fmt.Errorf("Error setting source ports from json `%s`: %s", string(data), err.Error())
-		}
+	if err := s.fromPort(aux.Port); err != nil {
+		return fmt.Errorf("Error setting source ports %s from json `%s`: %s", aux.Port, string(data), err.Error())
 	}
 
 	return nil
@@ -113,36 +111,42 @@ func (d *Destination) UnmarshalJSON(data []byte) (err error) {
 
 	if aux.Group != nil {
 		d.AddressGroup = aux.Group.Address
+		d.PortGroup = aux.Group.Port
 	}
 
-	if aux.Port != "" {
-		d.Port = new(Port)
-		d.FromPort, d.ToPort, err = ports(aux.Port)
-		if err != nil {
-			return fmt.Errorf("Error setting destination ports from json `%s`: %s", string(data), err.Error())
-		}
+	if err := d.fromPort(aux.Port); err != nil {
+		return fmt.Errorf("Error setting destination ports %s from json `%s`: %s", aux.Port, string(data), err.Error())
 	}
 
 	return nil
 }
 
 func (d *Destination) MarshalJSON() ([]byte, error) {
+	var g *group
+	{
+		if d.AddressGroup != nil || d.PortGroup != nil {
+			g = &group{
+				Address: d.AddressGroup,
+				Port:    d.PortGroup,
+			}
+		}
+	}
+
 	type Alias Destination
 	return json.Marshal(&struct {
 		Port  string `json:"port,omitempty"`
 		Group *group `json:"group,omitempty"`
 		*Alias
 	}{
-		Port: d.port(),
-		Group: &group{
-			Address: d.AddressGroup,
-		},
+		Port:  d.toPort(),
+		Group: g,
 		Alias: (*Alias)(d),
 	})
 }
 
 type group struct {
-	Address string `json:"address-group,omitempty"`
+	Address *string `json:"address-group,omitempty"`
+	Port    *string `json:"port-group,omitempty"`
 }
 
 func (g *PortGroup) UnmarshalJSON(data []byte) (err error) {

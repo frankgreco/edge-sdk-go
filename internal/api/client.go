@@ -5,11 +5,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
+	// "fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
-	"os"
+	// "os"
 )
 
 const (
@@ -48,7 +48,7 @@ func (c *client) Post(ctx context.Context, in *Operation) (*Operation, error) {
 		return nil, err
 	}
 
-	fmt.Fprintf(os.Stderr, string(data))
+	// fmt.Fprintf(os.Stderr, string(data))
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/api/edge/batch.json", bytes.NewBuffer(data))
 	if err != nil {
@@ -77,7 +77,7 @@ func toOperation(reader io.Reader) (*Operation, error) {
 			return nil, err
 		}
 
-		fmt.Fprintf(os.Stderr, string(data))
+		// fmt.Fprintf(os.Stderr, string(data))
 
 		if err := json.Unmarshal([]byte(data), &out); err != nil {
 			return nil, err

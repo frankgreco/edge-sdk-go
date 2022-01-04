@@ -19,11 +19,11 @@ type FirewallAttachment struct {
 
 type Ethernet struct {
 	ID          string              `json:"-" tfsdk:"id"`
-	Addresses   []string            `json:"address,omitempty"`
-	Description string              `json:"description,omitempty"`
-	DHCPOptions *DHCPOptions        `json:"dhcp-options,omitempty"`
-	Duplex      string              `json:"duplex,omitempty"`
-	Speed       string              `json:"speed,omitempty"`
-	IP          *IP                 `json:"ip,omitempty"`
-	Firewall    *FirewallAttachment `json:"firewall"`
+	Addresses   []string            `json:"address,omitempty" tfsdk:"-"`
+	Description string              `json:"description,omitempty" tfsdk:"-"`
+	DHCPOptions *DHCPOptions        `json:"dhcp-options,omitempty" tfsdk:"-"`
+	Duplex      string              `json:"duplex,omitempty" tfsdk:"-"`
+	Speed       string              `json:"speed,omitempty" tfsdk:"-"`
+	IP          *IP                 `json:"ip,omitempty" tfsdk:"-"`
+	Firewall    *FirewallAttachment `json:"firewall" tfsdk:"-"`
 }

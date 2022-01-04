@@ -56,17 +56,24 @@ func (s *State) UnmarshalJSON(data []byte) error {
 }
 
 func (s *Source) MarshalJSON() ([]byte, error) {
+	var g *group
+	{
+		if s.AddressGroup != nil || s.PortGroup != nil {
+			g = &group{
+				Address: s.AddressGroup,
+				Port:    s.PortGroup,
+			}
+		}
+	}
+
 	type Alias Source
 	return json.Marshal(&struct {
-		Port  string `json:"port"`
+		Port  string `json:"port,omitempty"`
 		Group *group `json:"group,omitempty"`
 		*Alias
 	}{
-		Port: s.toPort(),
-		Group: &group{
-			Address: s.AddressGroup,
-			Port:    s.PortGroup,
-		},
+		Port:  s.toPort(),
+		Group: g,
 		Alias: (*Alias)(s),
 	})
 }

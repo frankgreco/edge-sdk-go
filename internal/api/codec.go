@@ -4,24 +4,60 @@ import (
 	"encoding/json"
 )
 
-type status struct {
-	Success string `json:"success"`
-	Failure string `json:"failure"`
+type operation struct {
+	Success bool    `json:"success,omitempty"`
+	Set     *Status `json:"SET,omitempty"`
+	Delete  *Status `json:"DELETE,omitempty"`
+	Commit  *Status `json:"COMMIT,omitempty"`
+	Save    *Status `json:"SAVE,omitempty"`
 }
 
-func (out *Status) UnmarshalJSON(data []byte) error {
-	var s status
+func (o *Operation) UnmarshalJSON(data []byte) error {
+	if !o.justError {
+		type Alias Operation
+		return json.Unmarshal(data, &struct {
+			*Alias
+		}{
+			Alias: (*Alias)(o),
+		})
+	}
 
-	if err := json.Unmarshal(data, &s); err != nil {
+	var op operation
+	if err := json.Unmarshal(data, &op); err != nil {
+		return err
+	}
+	o.Success = op.Success
+	if op.Set != nil {
+		o.Set = &Set{Status: *op.Set}
+	}
+	if op.Delete != nil {
+		o.Delete = &Delete{Status: *op.Delete}
+	}
+	if op.Commit != nil {
+		o.Commit = &Commit{Status: *op.Commit}
+	}
+	if op.Save != nil {
+		o.Save = &Save{Status: *op.Save}
+	}
+
+	return nil
+}
+
+func (s *Status) UnmarshalJSON(data []byte) error {
+	type Alias Status
+	aux := &struct {
+		Success string `json:"success"`
+		Failure string `json:"failure"`
+		*Alias
+	}{
+		Alias: (*Alias)(s),
+	}
+	if err := json.Unmarshal(data, &aux); err != nil {
 		return err
 	}
 
-	if out == nil {
-		out = new(Status)
-	}
-
-	out.Success = s.Success == "1" || s.Failure == ""
-	out.Failure = s.Failure == "1"
+	s.Success = aux.Success == "1" || aux.Failure == ""
+	s.Failure = aux.Failure == "1"
 
 	return nil
 }

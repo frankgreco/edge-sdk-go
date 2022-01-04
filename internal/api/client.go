@@ -4,12 +4,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
-	// "fmt"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
-	// "os"
 )
 
 const (
@@ -39,7 +37,7 @@ func (c *client) Get(context.Context) (*Operation, error) {
 		return nil, err
 	}
 	defer resp.Body.Close()
-	return toOperation(resp.Body)
+	return toOperation(false, resp.Body)
 }
 
 func (c *client) Post(ctx context.Context, in *Operation) (*Operation, error) {
@@ -47,8 +45,6 @@ func (c *client) Post(ctx context.Context, in *Operation) (*Operation, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	// fmt.Fprintf(os.Stderr, string(data))
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/api/edge/batch.json", bytes.NewBuffer(data))
 	if err != nil {
@@ -66,26 +62,26 @@ func (c *client) Post(ctx context.Context, in *Operation) (*Operation, error) {
 		return nil, err
 	}
 	defer resp.Body.Close()
-	return toOperation(resp.Body)
+	return toOperation(true, resp.Body)
 }
 
-func toOperation(reader io.Reader) (*Operation, error) {
+func toOperation(justError bool, reader io.Reader) (*Operation, error) {
 	var out Operation
 	{
+		out.justError = justError
+
 		data, err := ioutil.ReadAll(reader)
 		if err != nil {
 			return nil, err
 		}
 
-		// fmt.Fprintf(os.Stderr, string(data))
-
 		if err := json.Unmarshal([]byte(data), &out); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("Could not unmarshal operation from data %s: %s", string(data), err.Error())
 		}
 	}
 
-	if out.Failed() {
-		return nil, errors.New("The operation was not successfull.")
+	if err := out.Failed(); err != nil {
+		return nil, err
 	}
 	return &out, nil
 }

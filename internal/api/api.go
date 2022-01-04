@@ -1,6 +1,9 @@
 package api
 
 import (
+	"errors"
+	"strings"
+
 	"github.com/frankgreco/edge-sdk-go/types"
 )
 
@@ -10,12 +13,12 @@ type Get struct {
 
 type Set struct {
 	Resources
-	*Status
+	Status `json:"-"`
 }
 
 type Delete struct {
 	Resources
-	*Status
+	Status `json:"-"`
 }
 
 type Resources struct {
@@ -24,43 +27,65 @@ type Resources struct {
 }
 
 type Commit struct {
-	*Status
+	Status `json:"-"`
 }
 
 type Status struct {
-	Success bool
-	Failure bool
+	Error   string `json:"error,omitempty"`
+	Success bool   `json:"-"`
+	Failure bool   `json:"-"`
 }
 
 type Save struct {
-	Success string `json:"success,omitempty"`
+	Status `json:"-"`
 }
 
 type Operation struct {
-	Success bool    `json:"success,omitempty"`
-	Get     *Get    `json:"GET,omitempty"`
-	Set     *Set    `json:"SET,omitempty"`
-	Delete  *Delete `json:"DELETE,omitempty"`
-	Commit  *Commit `json:"COMMIT,omitempty"`
-	Save    *Save   `json:"SAVE,omitempty"`
+	Success   bool    `json:"success,omitempty"`
+	Get       *Get    `json:"GET,omitempty"`
+	Set       *Set    `json:"SET,omitempty"`
+	Delete    *Delete `json:"DELETE,omitempty"`
+	Commit    *Commit `json:"COMMIT,omitempty"`
+	Save      *Save   `json:"SAVE,omitempty"`
+	justError bool
 }
 
-func (op Operation) Failed() bool {
+func (op Operation) Failed() error {
+	err := []string{}
+	failed := false
+
 	if !op.Success {
-		return true
+		failed = true
 	}
 
-	if op.Set != nil && op.Set.Status != nil && op.Set.Failure {
-		return true
+	if op.Set != nil && op.Set.Failure {
+		if op.Set.Error != "" {
+			err = append(err, op.Set.Error)
+		}
+		failed = true
 	}
 
-	if op.Commit != nil && op.Commit.Status != nil && op.Commit.Failure {
-		return true
+	if op.Commit != nil && op.Commit.Failure {
+		if op.Commit.Error != "" {
+			err = append(err, op.Commit.Error)
+		}
+		failed = true
 	}
 
-	if op.Delete != nil && op.Delete.Status != nil && op.Delete.Failure {
-		return true
+	if op.Delete != nil && op.Delete.Failure {
+		if op.Delete.Error != "" {
+			err = append(err, op.Delete.Error)
+		}
+		failed = true
 	}
 
-	return false
+	if !failed {
+		return nil
+	}
+
+	if len(err) == 0 {
+		err = append(err, "The operation failed for a unknown reason.")
+	}
+
+	return errors.New(strings.Join(err, ", "))
 }

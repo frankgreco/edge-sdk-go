@@ -18,6 +18,7 @@ type Client interface {
 	AttachFirewallRuleset(context.Context, string, *types.FirewallAttachment) (*types.FirewallAttachment, error)
 	UpdateFirewallRulesetAttachment(context.Context, *types.FirewallAttachment, []jsonpatch.JsonPatchOperation) (*types.FirewallAttachment, error)
 	DetachFirewallRuleset(context.Context, string) error
+	GetFirewallRulesetAttachment(context.Context, string) (*types.FirewallAttachment, error)
 }
 
 type client struct {
@@ -38,8 +39,16 @@ func (c *client) Get(ctx context.Context, id string) (*types.Ethernet, error) {
 	return toEthernet(id, op)
 }
 
+func (c *client) GetFirewallRulesetAttachment(ctx context.Context, id string) (*types.FirewallAttachment, error) {
+	ethernet, err := c.Get(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	return ethernet.Firewall, nil
+}
+
 func (c *client) AttachFirewallRuleset(ctx context.Context, id string, firewall *types.FirewallAttachment) (*types.FirewallAttachment, error) {
-	op, err := c.apiClient.Post(ctx, &api.Operation{
+	_, err := c.apiClient.Post(ctx, &api.Operation{
 		Set: &api.Set{
 			Resources: api.Resources{
 				Interfaces: &types.Interfaces{
@@ -55,11 +64,7 @@ func (c *client) AttachFirewallRuleset(ctx context.Context, id string, firewall 
 	if err != nil {
 		return nil, err
 	}
-	ethernet, err := toEthernet(id, op)
-	if err != nil {
-		return nil, err
-	}
-	return ethernet.Firewall, nil // TODO: Potentially return error if no firewalls are attached.
+	return c.GetFirewallRulesetAttachment(ctx, id)
 }
 
 func (c *client) UpdateFirewallRulesetAttachment(ctx context.Context, current *types.FirewallAttachment, patches []jsonpatch.JsonPatchOperation) (*types.FirewallAttachment, error) {
@@ -114,12 +119,7 @@ func (c *client) UpdateFirewallRulesetAttachment(ctx context.Context, current *t
 	if _, err := c.apiClient.Post(ctx, in); err != nil {
 		return nil, err
 	}
-
-	after, err := c.Get(ctx, current.Interface)
-	if err != nil {
-		return nil, err
-	}
-	return after.Firewall, nil
+	return c.GetFirewallRulesetAttachment(ctx, current.Interface)
 }
 
 func (c *client) DetachFirewallRuleset(ctx context.Context, id string) error {

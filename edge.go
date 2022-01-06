@@ -16,7 +16,7 @@ type Client struct {
 	Interfaces *interfaces.Client
 }
 
-func Login(host, username, password string) (*Client, error) {
+func Login(host string, insecure bool, username, password string) (*Client, error) {
 	jar, err := cookiejar.New(nil)
 	if err != nil {
 		return nil, err
@@ -25,7 +25,7 @@ func Login(host, username, password string) (*Client, error) {
 	httpClient := &http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true,
+				InsecureSkipVerify: insecure,
 			},
 		},
 		Jar: jar,

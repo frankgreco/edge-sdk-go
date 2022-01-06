@@ -4,7 +4,7 @@
 
 ## Quickstart
 ```
-client, err := edge.Login("https://192.168.1.1", "ubnt", "ubnt")
+client, err := edge.Login("https://192.168.1.1", true, "ubnt", "ubnt")
 if err != nil {
     os.Exit(1)
 }

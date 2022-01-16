@@ -50,6 +50,7 @@ func (c *client) GetRuleset(ctx context.Context, name string) (*types.Ruleset, e
 }
 
 func (c *client) CreateRuleset(ctx context.Context, p *types.Ruleset) (*types.Ruleset, error) {
+	p.SetCodecMode(types.CodecModeRemote)
 	_, err := c.apiClient.Post(ctx, &api.Operation{
 		Set: &api.Set{
 			Resources: api.Resources{

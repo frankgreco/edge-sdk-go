@@ -48,7 +48,7 @@ type State struct {
 
 type Rule struct {
 	Priority    int          `json:"-" tfsdk:"priority"`
-	Description string       `json:"description" tfsdk:"description"`
+	Description *string      `json:"description,omitempty" tfsdk:"description"`
 	Action      string       `json:"action" tfsdk:"action"`
 	Protocol    string       `json:"protocol" tfsdk:"protocol"`
 	Source      *Source      `json:"source" tfsdk:"source"`
@@ -59,7 +59,7 @@ type Rule struct {
 
 type Ruleset struct {
 	Name          string  `json:"-" tfsdk:"name"`
-	Description   string  `json:"description,omitempty" tfsdk:"description"`
+	Description   *string `json:"description,omitempty" tfsdk:"description"`
 	DefaultAction string  `json:"default-action,omitempty" tfsdk:"default_action"`
 	Rules         []*Rule `json:"-" tfsdk:"rule"` // Omitting the json tag due to custom marshal/unmarshal methods.
 	codecMode     CodecMode

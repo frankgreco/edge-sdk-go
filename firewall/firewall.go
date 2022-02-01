@@ -301,8 +301,69 @@ func (c *client) GetPortGroup(ctx context.Context, name string) (*types.PortGrou
 	return toPortGroup(name, op)
 }
 
-func (c *client) UpdatePortGroup(context.Context, *types.PortGroup, []jsonpatch.JsonPatchOperation) (*types.PortGroup, error) {
-	return nil, nil
+func (c *client) UpdatePortGroup(ctx context.Context, current *types.PortGroup, patches []jsonpatch.JsonPatchOperation) (*types.PortGroup, error) {
+	if len(patches) == 0 {
+		return current, nil
+	}
+
+	var group types.PortGroup
+	if err := utils.Patch(current, &group, patches); err != nil {
+		return nil, err
+	}
+
+	in := &api.Operation{
+		Set: &api.Set{
+			Resources: api.Resources{
+				Firewall: &types.Firewall{
+					Groups: &types.Groups{
+						Port: map[string]*types.PortGroup{
+							current.Name: &group,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	var del *api.Delete
+	{
+		shouldDelete := false
+
+		del = &api.Delete{
+			Resources: api.Resources{
+				Firewall: &types.Firewall{
+					Groups: &types.Groups{
+						Port: map[string]*types.PortGroup{
+							current.Name: new(types.PortGroup),
+						},
+					},
+				},
+			},
+		}
+
+		if stalePorts := utils.IntSliceDiff(group.Ports, current.Ports); len(stalePorts) > 0 {
+			del.Firewall.Groups.Port[current.Name].Ports = stalePorts
+			shouldDelete = true
+		}
+
+		if group.Description == nil || *group.Description == "" {
+			del.Firewall.Groups.Port[current.Name].Description = current.Description
+			shouldDelete = true
+		}
+
+		if !shouldDelete {
+			del = nil
+		}
+	}
+
+	if del != nil {
+		in.Delete = del
+	}
+
+	if _, err := c.apiClient.Post(ctx, in); err != nil {
+		return nil, err
+	}
+	return c.GetPortGroup(ctx, current.Name)
 }
 
 func (c *client) DeletePortGroup(ctx context.Context, name string) error {

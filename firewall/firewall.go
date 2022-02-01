@@ -131,34 +131,50 @@ func (c *client) UpdateRuleset(ctx context.Context, current *types.Ruleset, patc
 
 	rs.SetCodecMode(types.CodecModeRemote)
 
-	var in *api.Operation
+	in := &api.Operation{
+		Set: &api.Set{
+			Resources: api.Resources{
+				Firewall: &types.Firewall{
+					Rulesets: map[string]*types.Ruleset{
+						current.Name: &rs,
+					},
+				},
+			},
+		},
+	}
+
+	var del *api.Delete
 	{
-		in = &api.Operation{
-			Set: &api.Set{
-				Resources: api.Resources{
-					Firewall: &types.Firewall{
-						Rulesets: map[string]*types.Ruleset{
-							current.Name: &rs,
-						},
+		shouldDelete := false
+
+		del = &api.Delete{
+			Resources: api.Resources{
+				Firewall: &types.Firewall{
+					Rulesets: map[string]*types.Ruleset{
+						current.Name: new(types.Ruleset),
 					},
 				},
 			},
 		}
 
 		if len(discard) > 0 {
-			in.Delete = &api.Delete{
-				Resources: api.Resources{
-					Firewall: &types.Firewall{
-						Rulesets: map[string]*types.Ruleset{
-							current.Name: {
-								Rules: discard,
-							},
-						},
-					},
-				},
-			}
-			in.Delete.Firewall.Rulesets[current.Name].SetOpMode(types.OpModeDelete)
+			del.Resources.Firewall.Rulesets[current.Name].Rules = discard
+			shouldDelete = true
 		}
+
+		if (current.Description != nil) && (rs.Description == nil || *rs.Description == "") {
+			del.Resources.Firewall.Rulesets[current.Name].Description = current.Description
+			shouldDelete = true
+		}
+
+		if !shouldDelete {
+			del = nil
+		}
+	}
+
+	if del != nil {
+		in.Delete = del
+		in.Delete.Firewall.Rulesets[current.Name].SetOpMode(types.OpModeDelete)
 	}
 
 	if _, err := c.apiClient.Post(ctx, in); err != nil {

@@ -40,10 +40,10 @@ type Destination struct {
 }
 
 type State struct {
-	Established bool `json:"established" tfsdk:"established"`
-	Invalid     bool `json:"invalid" tfsdk:"invalid"`
-	New         bool `json:"new" tfsdk:"new"`
-	Related     bool `json:"related" tfsdk:"related"`
+	Established *bool `json:"established" tfsdk:"established"`
+	Invalid     *bool `json:"invalid" tfsdk:"invalid"`
+	New         *bool `json:"new" tfsdk:"new"`
+	Related     *bool `json:"related" tfsdk:"related"`
 }
 
 type Rule struct {

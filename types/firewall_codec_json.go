@@ -7,7 +7,8 @@ import (
 )
 
 const (
-	enable = "enable"
+	enable  = "enable"
+	disable = "disable"
 )
 
 type CodecMode int
@@ -25,11 +26,11 @@ type apiState struct {
 }
 
 func (s *State) MarshalJSON() ([]byte, error) {
-	value := func(b bool) string {
-		if b {
-			return "enable"
+	value := func(b *bool) string {
+		if b == nil || !*b {
+			return disable
 		}
-		return ""
+		return enable
 	}
 
 	return json.Marshal(&apiState{
@@ -41,16 +42,25 @@ func (s *State) MarshalJSON() ([]byte, error) {
 }
 
 func (s *State) UnmarshalJSON(data []byte) error {
+	t := true
+
+	value := func(b string) *bool {
+		if b == enable {
+			return &t
+		}
+		return nil
+	}
+
 	var state apiState
 
 	if err := json.Unmarshal(data, &state); err != nil {
 		return err
 	}
 
-	s.Established = state.Established == enable
-	s.Invalid = state.Invalid == enable
-	s.New = state.New == enable
-	s.Related = state.Related == enable
+	s.Established = value(state.Established)
+	s.Invalid = value(state.Invalid)
+	s.New = value(state.New)
+	s.Related = value(state.Related)
 
 	return nil
 }

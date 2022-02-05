@@ -10,9 +10,9 @@ type apiFirewallDetails struct {
 }
 
 type apiFirewall struct {
-	In    *apiFirewallDetails `json:"in"`
-	Out   *apiFirewallDetails `json:"out"`
-	Local *apiFirewallDetails `json:"local"`
+	In    *apiFirewallDetails `json:"in,omitempty"`
+	Out   *apiFirewallDetails `json:"out,omitempty"`
+	Local *apiFirewallDetails `json:"local,omitempty"`
 }
 
 func (f *FirewallAttachment) MarshalJSON() ([]byte, error) {

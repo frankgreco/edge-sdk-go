@@ -162,6 +162,11 @@ func (c *client) UpdateRuleset(ctx context.Context, current *types.Ruleset, patc
 			shouldDelete = true
 		}
 
+		if l := current.DefaultLogging; l != nil && *l && (rs.DefaultLogging == nil || !*rs.DefaultLogging) {
+			del.Resources.Firewall.Rulesets[current.Name].DefaultLogging = current.DefaultLogging
+			shouldDelete = true
+		}
+
 		if (current.Description != nil) && (rs.Description == nil || *rs.Description == "") {
 			del.Resources.Firewall.Rulesets[current.Name].Description = current.Description
 			shouldDelete = true

@@ -54,16 +54,18 @@ type Rule struct {
 	Source      *Source      `json:"source" tfsdk:"source"`
 	Destination *Destination `json:"destination" tfsdk:"destination"`
 	State       *State       `json:"state" tfsdk:"state"`
+	Log         *bool        `json:"-" tfsdk:"log"`
 	codecMode   CodecMode
 }
 
 type Ruleset struct {
-	Name          string  `json:"-" tfsdk:"name"`
-	Description   *string `json:"description,omitempty" tfsdk:"description"`
-	DefaultAction string  `json:"default-action,omitempty" tfsdk:"default_action"`
-	Rules         []*Rule `json:"-" tfsdk:"rule"` // Omitting the json tag due to custom marshal/unmarshal methods.
-	codecMode     CodecMode
-	opMode        OpMode
+	Name           string  `json:"-" tfsdk:"name"`
+	Description    *string `json:"description,omitempty" tfsdk:"description"`
+	DefaultAction  string  `json:"default-action,omitempty" tfsdk:"default_action"`
+	DefaultLogging *bool   `json:"-" tfsdk:"default_logging"`
+	Rules          []*Rule `json:"-" tfsdk:"rule"` // Omitting the json tag due to custom marshal/unmarshal methods.
+	codecMode      CodecMode
+	opMode         OpMode
 }
 
 type Groups struct {

@@ -187,7 +187,11 @@ func (g *PortGroup) UnmarshalJSON(data []byte) (err error) {
 	return nil
 }
 
-func (g *PortGroup) MarshalJSON() ([]byte, error) {
+func (g PortGroup) MarshalJSON() ([]byte, error) {
+	return (&g).marshalJSON()
+}
+
+func (g *PortGroup) marshalJSON() ([]byte, error) {
 	type Alias PortGroup
 	return json.Marshal(&struct {
 		Ports []string `json:"port,omitempty"`
@@ -198,7 +202,11 @@ func (g *PortGroup) MarshalJSON() ([]byte, error) {
 	})
 }
 
-func (rs *Ruleset) MarshalJSON() ([]byte, error) {
+func (rs Ruleset) MarshalJSON() ([]byte, error) {
+	return (&rs).marshalJSON()
+}
+
+func (rs *Ruleset) marshalJSON() ([]byte, error) {
 	for _, rule := range rs.Rules {
 		rule.SetCodecMode(rs.codecMode)
 	}
@@ -210,24 +218,35 @@ func (rs *Ruleset) MarshalJSON() ([]byte, error) {
 		}
 	}
 
+	var n *null
+	{
+		if l := rs.DefaultLogging; l != nil && *l {
+			n = &null{true}
+		}
+	}
+
 	var data interface{}
 	{
 		type Alias Ruleset
 		if rs.codecMode == CodecModeLocal {
 			data = &struct {
-				Rules []*Rule `json:"rule,omitempty"`
+				DefaultLogging *null   `json:"enable-default-log,omitempty"`
+				Rules          []*Rule `json:"rule,omitempty"`
 				*Alias
 			}{
-				Rules: rs.Rules,
-				Alias: (*Alias)(rs),
+				DefaultLogging: n,
+				Rules:          rs.Rules,
+				Alias:          (*Alias)(rs),
 			}
 		} else {
 			data = &struct {
-				RulesMap map[string]*Rule `json:"rule,omitempty"`
+				DefaultLogging *null            `json:"enable-default-log,omitempty"`
+				RulesMap       map[string]*Rule `json:"rule,omitempty"`
 				*Alias
 			}{
-				RulesMap: buildMap(rs, isDelete),
-				Alias:    (*Alias)(rs),
+				DefaultLogging: n,
+				RulesMap:       buildMap(rs, isDelete),
+				Alias:          (*Alias)(rs),
 			}
 		}
 	}
@@ -239,7 +258,8 @@ func (rs *Ruleset) UnmarshalJSON(data []byte) (err error) {
 
 	if rs.codecMode == CodecModeLocal {
 		aux := &struct {
-			Rules []*Rule `json:"rule,omitempty"`
+			DefaultLogging null    `json:"enable-default-log"`
+			Rules          []*Rule `json:"rule,omitempty"`
 			*Alias
 		}{
 			Alias: (*Alias)(rs),
@@ -247,12 +267,15 @@ func (rs *Ruleset) UnmarshalJSON(data []byte) (err error) {
 		if err := json.Unmarshal(data, &aux); err != nil {
 			return err
 		}
+
+		rs.DefaultLogging = boolptr(aux.DefaultLogging.val)
 		rs.Rules = aux.Rules
 		return nil
 	}
 
 	aux := &struct {
-		RulesMap map[string]*Rule `json:"rule,omitempty"`
+		DefaultLogging null             `json:"enable-default-log"`
+		RulesMap       map[string]*Rule `json:"rule,omitempty"`
 		*Alias
 	}{
 		Alias: (*Alias)(rs),
@@ -260,6 +283,8 @@ func (rs *Ruleset) UnmarshalJSON(data []byte) (err error) {
 	if err := json.Unmarshal(data, &aux); err != nil {
 		return err
 	}
+
+	rs.DefaultLogging = boolptr(aux.DefaultLogging.val)
 
 	for k, v := range aux.RulesMap {
 		i, err := strconv.Atoi(k)
@@ -278,10 +303,12 @@ func (r *Rule) MarshalJSON() ([]byte, error) {
 		type Alias Rule
 		if r.codecMode == CodecModeLocal {
 			data = &struct {
-				Priority int `json:"priority"`
+				Priority int    `json:"priority"`
+				Log      string `json:"log,omitempty"`
 				*Alias
 			}{
 				Priority: r.Priority,
+				Log:      toEnableDisable(r.Log),
 				Alias:    (*Alias)(r),
 			}
 		} else {
@@ -289,8 +316,10 @@ func (r *Rule) MarshalJSON() ([]byte, error) {
 				r.Protocol = ""
 			}
 			data = &struct {
+				Log string `json:"log,omitempty"`
 				*Alias
 			}{
+				Log:   toEnableDisable(r.Log),
 				Alias: (*Alias)(r),
 			}
 		}
@@ -301,7 +330,8 @@ func (r *Rule) MarshalJSON() ([]byte, error) {
 func (r *Rule) UnmarshalJSON(data []byte) error {
 	type Alias Rule
 	aux := &struct {
-		Priority int `json:"priority"`
+		Priority int    `json:"priority"`
+		Log      string `json:"log,omitempty"`
 		*Alias
 	}{
 		Alias: (*Alias)(r),
@@ -314,7 +344,24 @@ func (r *Rule) UnmarshalJSON(data []byte) error {
 	if aux.Protocol == "" {
 		r.Protocol = "*"
 	}
+	r.Log = toBoolPtr(aux.Log)
 	return nil
+}
+
+func toBoolPtr(val string) *bool {
+	t, f := true, false
+
+	if val == "" || val == disable {
+		return &f
+	}
+	return &t
+}
+
+func toEnableDisable(b *bool) string {
+	if b == nil || !*b {
+		return disable
+	}
+	return enable
 }
 
 // // consider having
@@ -334,4 +381,8 @@ func buildMap(rs *Ruleset, isDelete bool) map[string]*Rule {
 		}
 	}
 	return m
+}
+
+func boolptr(b bool) *bool {
+	return &b
 }

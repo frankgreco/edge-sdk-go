@@ -150,6 +150,7 @@ func toEthernet(id string, op *api.Operation) (*types.Ethernet, error) {
 	}
 
 	ethernet.Firewall.Interface = id
+	// ethernet.Firewall.ID = ethernet.Firewall.Interface
 
 	return ethernet, nil
 }

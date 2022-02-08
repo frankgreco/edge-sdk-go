@@ -419,6 +419,7 @@ func toRuleset(name string, op *api.Operation) (*types.Ruleset, error) {
 	}
 
 	ruleset.Name = name
+	// ruleset.ID = ruleset.Name
 	return ruleset, nil
 }
 
@@ -433,6 +434,7 @@ func toAddressGroup(name string, op *api.Operation) (*types.AddressGroup, error)
 	}
 
 	group.Name = name
+	// group.ID = group.Name
 	return group, nil
 }
 
@@ -447,5 +449,6 @@ func toPortGroup(name string, op *api.Operation) (*types.PortGroup, error) {
 	}
 
 	group.Name = name
+	// group.ID = group.Name
 	return group, nil
 }

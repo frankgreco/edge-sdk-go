@@ -1,5 +1,7 @@
 package types
 
+import tftypes "github.com/hashicorp/terraform-plugin-framework/types"
+
 type DHCPOptions struct {
 	DefaultRoute         string `json:"default-route,omitempty"`
 	DefaultRouteDistance int    `json:"-"`
@@ -11,10 +13,11 @@ type IP struct {
 }
 
 type FirewallAttachment struct {
-	Interface string  `json:"-" tfsdk:"interface"`
-	In        *string `json:"in,omitempty" tfsdk:"in"`
-	Out       *string `json:"out,omitempty" tfsdk:"out"`
-	Local     *string `json:"local,omitempty" tfsdk:"local"`
+	ID        tftypes.String `json:"-" tfsdk:"id"`
+	Interface string         `json:"-" tfsdk:"interface"`
+	In        *string        `json:"in,omitempty" tfsdk:"in"`
+	Out       *string        `json:"out,omitempty" tfsdk:"out"`
+	Local     *string        `json:"local,omitempty" tfsdk:"local"`
 }
 
 type Ethernet struct {
@@ -26,4 +29,8 @@ type Ethernet struct {
 	Speed       string              `json:"speed,omitempty" tfsdk:"-"`
 	IP          *IP                 `json:"ip,omitempty" tfsdk:"-"`
 	Firewall    *FirewallAttachment `json:"firewall" tfsdk:"-"`
+}
+
+func (a *FirewallAttachment) GetID() string {
+	return a.Interface
 }

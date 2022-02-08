@@ -4,12 +4,15 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	tftypes "github.com/hashicorp/terraform-plugin-framework/types"
 )
 
 type AddressGroup struct {
-	Name        string   `json:"-" tfsdk:"name"`
-	Description *string  `json:"description,omitempty" tfsdk:"description"`
-	Cidrs       []string `json:"address,omitempty" tfsdk:"cidrs"`
+	ID          tftypes.String `json:"-" tfsdk:"id"`
+	Name        string         `json:"-" tfsdk:"name"`
+	Description *string        `json:"description,omitempty" tfsdk:"description"`
+	Cidrs       []string       `json:"address,omitempty" tfsdk:"cidrs"`
 }
 
 type PortRange struct {
@@ -17,11 +20,49 @@ type PortRange struct {
 	To   int `tfsdk:"to"`
 }
 
+func (r *PortRange) String() string {
+	return fmt.Sprintf("{from = %d, to = %d}", r.From, r.To)
+}
+
 type PortGroup struct {
-	Name        string       `json:"-" tfsdk:"name"`
-	Description *string      `json:"description,omitempty" tfsdk:"description"`
-	Ports       []int        `json:"-" tfsdk:"ports"`
-	Ranges      []*PortRange `json:"-" tfsdk:"port_ranges"`
+	ID          tftypes.String `json:"-" tfsdk:"id"`
+	Name        string         `json:"-" tfsdk:"name"`
+	Description *string        `json:"description,omitempty" tfsdk:"description"`
+	Ports       []int          `json:"-" tfsdk:"ports"`
+	Ranges      []*PortRange   `json:"-" tfsdk:"port_ranges"`
+}
+
+func (g *PortGroup) Clone() *PortGroup {
+	var tmp PortGroup
+	tmp = *g
+	return &tmp
+}
+
+func (g *PortGroup) WithDescription(description *string) *PortGroup {
+	g.Description = description
+	return g
+}
+
+func (g *PortGroup) WithPorts(ports []int) *PortGroup {
+	g.Ports = ports
+	return g
+}
+
+func (g *PortGroup) WithRanges(vals ...int) *PortGroup {
+	if len(vals)%2 != 0 {
+		return g
+	}
+
+	g.Ranges = []*PortRange{}
+
+	for i := 1; i < len(vals); i += 2 {
+		g.Ranges = append(g.Ranges, &PortRange{
+			From: vals[i-1],
+			To:   vals[i],
+		})
+	}
+
+	return g
 }
 
 type Source struct {
@@ -59,11 +100,12 @@ type Rule struct {
 }
 
 type Ruleset struct {
-	Name           string  `json:"-" tfsdk:"name"`
-	Description    *string `json:"description,omitempty" tfsdk:"description"`
-	DefaultAction  string  `json:"default-action,omitempty" tfsdk:"default_action"`
-	DefaultLogging *bool   `json:"-" tfsdk:"default_logging"`
-	Rules          []*Rule `json:"-" tfsdk:"rule"` // Omitting the json tag due to custom marshal/unmarshal methods.
+	ID             tftypes.String `json:"-" tfsdk:"id"`
+	Name           string         `json:"-" tfsdk:"name"`
+	Description    *string        `json:"description,omitempty" tfsdk:"description"`
+	DefaultAction  string         `json:"default-action,omitempty" tfsdk:"default_action"`
+	DefaultLogging *bool          `json:"-" tfsdk:"default_logging"`
+	Rules          []*Rule        `json:"-" tfsdk:"rule"` // Omitting the json tag due to custom marshal/unmarshal methods.
 	codecMode      CodecMode
 	opMode         OpMode
 }
@@ -76,6 +118,18 @@ type Groups struct {
 type Firewall struct {
 	Rulesets map[string]*Ruleset `json:"name,omitempty"`
 	Groups   *Groups             `json:"group,omitempty"`
+}
+
+func (rs *Ruleset) GetID() string {
+	return rs.Name
+}
+
+func (g *AddressGroup) GetID() string {
+	return g.Name
+}
+
+func (g *PortGroup) GetID() string {
+	return g.Name
 }
 
 func (rs *Ruleset) SetCodecMode(c CodecMode) {

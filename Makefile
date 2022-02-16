@@ -5,6 +5,11 @@ ALL_SRC	:= $(shell find . -name "*.go" | grep -v -e vendor)
 fmt:
 	@gofmt -e -s -l -w $(ALL_SRC)
 
+.PHONY: deps
+deps:
+	 go mod download
+	 go mod tidy
+
 .PHONY: test
-test:
+test: deps
 	go test -v ./...

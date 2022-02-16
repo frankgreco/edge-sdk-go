@@ -1,5 +1,5 @@
 ---
-name: ci
+name: edge-sdk-go
 
 on:
   push:
@@ -10,10 +10,11 @@ on:
     - master
 
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - name: checkout
+      uses: actions/checkout@v2
 
     - name: setup
       uses: actions/setup-go@v2

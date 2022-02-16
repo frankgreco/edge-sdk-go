@@ -1,4 +1,4 @@
-[![tests](https://github.com/frankgreco/edge-sdk-go/actions/workflows/edge-sdk-go.yml/badge.svg)](https://github.com/frankgreco/edge-sdk-go/actions/workflows/edge-sdk-go.yml)
+[![tests](https://github.com/frankgreco/edge-sdk-go/actions/workflows/tests.yml/badge.svg)](https://github.com/frankgreco/edge-sdk-go/actions/workflows/tests.yml)
 
 # edge-sdk-go
 

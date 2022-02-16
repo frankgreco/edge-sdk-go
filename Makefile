@@ -11,5 +11,5 @@ deps:
 	 go mod tidy
 
 .PHONY: test
-test: deps
+test:
 	go test -v ./...

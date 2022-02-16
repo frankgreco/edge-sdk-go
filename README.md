@@ -1,3 +1,5 @@
+[![tests](https://github.com/frankgreco/edge-sdk-go/actions/workflows/edge-sdk-go.yml/badge.svg)](https://github.com/frankgreco/edge-sdk-go/actions/workflows/edge-sdk-go.yml)
+
 # edge-sdk-go
 
 > golang sdk for ubiquiti edgeos

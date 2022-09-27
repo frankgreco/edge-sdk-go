@@ -70,7 +70,7 @@ type Source struct {
 	AddressGroup *string    `json:"-" tfsdk:"address_group"`
 	PortGroup    *string    `json:"-" tfsdk:"port_group"`
 	Port         *PortRange `json:"-" tfsdk:"port"`
-	MAC          *string    `json:"mac,omitempty" tfsdk:"mac"`
+	MAC          *string    `json:"mac-address,omitempty" tfsdk:"mac"`
 }
 
 type Destination struct {

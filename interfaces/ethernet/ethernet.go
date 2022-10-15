@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/frankgreco/edge-sdk-go/internal/api"
 	"github.com/frankgreco/edge-sdk-go/internal/utils"
@@ -52,11 +53,7 @@ func (c *client) AttachFirewallRuleset(ctx context.Context, id string, firewall 
 		Set: &api.Set{
 			Resources: api.Resources{
 				Interfaces: &types.Interfaces{
-					Ethernet: map[string]*types.Ethernet{
-						id: {
-							Firewall: firewall,
-						},
-					},
+					Ethernet: toEthernetMap(id, firewall),
 				},
 			},
 		},
@@ -92,11 +89,7 @@ func (c *client) UpdateFirewallRulesetAttachment(ctx context.Context, current *t
 		Set: &api.Set{
 			Resources: api.Resources{
 				Interfaces: &types.Interfaces{
-					Ethernet: map[string]*types.Ethernet{
-						current.Interface: {
-							Firewall: &a,
-						},
-					},
+					Ethernet: toEthernetMap(current.Interface, &a),
 				},
 			},
 		},
@@ -127,11 +120,7 @@ func (c *client) DetachFirewallRuleset(ctx context.Context, id string) error {
 		Delete: &api.Delete{
 			Resources: api.Resources{
 				Interfaces: &types.Interfaces{
-					Ethernet: map[string]*types.Ethernet{
-						id: {
-							Firewall: nil,
-						},
-					},
+					Ethernet: toEthernetMap(id, nil),
 				},
 			},
 		},
@@ -153,4 +142,25 @@ func toEthernet(id string, op *api.Operation) (*types.Ethernet, error) {
 	// ethernet.Firewall.ID = ethernet.Firewall.Interface
 
 	return ethernet, nil
+}
+
+func toEthernetMap(id string, firewall *types.FirewallAttachment) map[string]*types.Ethernet {
+	ethernet := map[string]*types.Ethernet{}
+
+	// '.' indicates likely vlan
+	if strings.Contains(id, ".") {
+		parts := strings.Split(id, ".")
+		ethId := parts[0]
+		vlanId := parts[1]
+		ethernet[ethId] = &types.Ethernet{
+			Vif: map[string]*types.VirtualInterface{
+				vlanId: {
+					Firewall: firewall,
+				},
+			},
+		}
+	} else {
+		ethernet[id] = &types.Ethernet{Firewall: firewall}
+	}
+	return ethernet
 }

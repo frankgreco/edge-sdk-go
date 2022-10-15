@@ -20,15 +20,20 @@ type FirewallAttachment struct {
 	Local     *string        `json:"local,omitempty" tfsdk:"local"`
 }
 
+type VirtualInterface struct {
+	Firewall *FirewallAttachment `json:"firewall,omitempty" tfsdk:"-"`
+}
+
 type Ethernet struct {
-	ID          string              `json:"-" tfsdk:"id"`
-	Addresses   []string            `json:"address,omitempty" tfsdk:"-"`
-	Description string              `json:"description,omitempty" tfsdk:"-"`
-	DHCPOptions *DHCPOptions        `json:"dhcp-options,omitempty" tfsdk:"-"`
-	Duplex      string              `json:"duplex,omitempty" tfsdk:"-"`
-	Speed       string              `json:"speed,omitempty" tfsdk:"-"`
-	IP          *IP                 `json:"ip,omitempty" tfsdk:"-"`
-	Firewall    *FirewallAttachment `json:"firewall" tfsdk:"-"`
+	ID          string                       `json:"-" tfsdk:"id"`
+	Addresses   []string                     `json:"address,omitempty" tfsdk:"-"`
+	Description string                       `json:"description,omitempty" tfsdk:"-"`
+	DHCPOptions *DHCPOptions                 `json:"dhcp-options,omitempty" tfsdk:"-"`
+	Duplex      string                       `json:"duplex,omitempty" tfsdk:"-"`
+	Speed       string                       `json:"speed,omitempty" tfsdk:"-"`
+	IP          *IP                          `json:"ip,omitempty" tfsdk:"-"`
+	Firewall    *FirewallAttachment          `json:"firewall,omitempty" tfsdk:"-"`
+	Vif         map[string]*VirtualInterface `json:"vif,omitempty" tfsdk:"-"`
 }
 
 func (a *FirewallAttachment) GetID() string {
